@@ -1,0 +1,312 @@
+/* DeerHunter. Dark, dense, financial-terminal feel, consistent with Scuttlebutt and
+   WealthView. Deliberately not an outdoors-brand look: no camo, no antler icons, no
+   woodgrain. This is an instrument panel that happens to be about deer. */
+
+:root{
+  /* Sticky offsets. The header wraps to two or three rows on a narrow window or once
+     enough status chips are showing, so these cannot be hardcoded: a fixed 51px put the
+     calendar's sticky column headers underneath the header bar and floating over the
+     first few rows. app.js measures both bars and rewrites these on load and on resize. */
+  --header-h:51px; --nav-h:40px; --sticky-top:91px;
+  --bg:#0a0e14; --panel:#111721; --panel2:#0d131c; --panel3:#161d29; --border:#1e2733;
+  --text:#c9d4e3; --muted:#6b7a8d; --dim:#48566a;
+  --green:#16c784; --green-dim:#0e7a52; --red:#ea3943; --red-dim:#8f2229;
+  --amber:#f0b429; --blue:#4c9aff; --accent:#5ac8fa; --purple:#c084fc;
+  --buck:#f0b429; --general:#16c784;
+  --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+/* min-height, NOT height. A sticky element is confined to its containing block, so
+   body{height:100%} pins the header and tab bar inside a single viewport and they scroll
+   away the moment you get past the first screen of the calendar. */
+html{height:100%}
+body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+.dim{color:var(--dim)}
+.right{margin-left:auto}
+.hide{display:none !important}
+
+header{position:sticky;top:0;z-index:600;background:linear-gradient(180deg,#0c121b,#0a0e14);
+  border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-size:17px;margin:0;letter-spacing:1.5px;font-weight:700}
+.brand .tag{color:var(--muted);font-size:11px;font-family:var(--mono)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center}
+.chip{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px 9px;font-size:11px;
+  font-family:var(--mono);color:var(--muted);white-space:nowrap}
+.chip b{color:var(--text)}
+.chip.warn{border-color:var(--amber);color:var(--amber)}
+.chip.good{border-color:var(--green-dim);color:var(--green)}
+.chip.bad{border-color:var(--red-dim);color:var(--red)}
+.chip.stale{border-color:var(--amber);color:var(--amber)}
+
+.btn{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:6px;
+  padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--sans)}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--green-dim);border-color:var(--green)}
+.btn.danger{border-color:var(--red-dim);color:var(--red)}
+.btn.sm{padding:3px 8px;font-size:11px}
+.btn.active{background:var(--border);border-color:var(--accent);color:var(--text)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+nav.tabs{display:flex;gap:2px;padding:0 18px;background:var(--panel2);border-bottom:1px solid var(--border);
+  position:sticky;top:var(--header-h);z-index:590;overflow-x:auto}
+nav.tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
+  padding:11px 16px;cursor:pointer;font-size:13px;font-family:var(--sans);white-space:nowrap}
+nav.tabs button.active{color:var(--text);border-bottom-color:var(--accent)}
+nav.tabs button:hover{color:var(--text)}
+
+main{padding:18px;max-width:1280px;margin:0 auto}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:14px;margin-bottom:12px}
+/* The calendar table's sticky column headers break if ANY ancestor clips overflow, which
+   is what overflow:hidden on the wrapping card was doing. Round the table's own corners
+   instead of clipping the card. */
+.card.flush{padding:0;overflow:visible}
+.card.flush .caltable{border-radius:0 0 9px 9px}
+.card.flush .caltable tr:last-child td:first-child{border-bottom-left-radius:9px}
+.card.flush .caltable tr:last-child td:last-child{border-bottom-right-radius:9px}
+.card h3{margin:0 0 10px;font-size:14px;letter-spacing:.3px}
+.card h4{margin:14px 0 6px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+
+/* score colour ramp: red at the bottom through amber to green at the top */
+.sc{font-family:var(--mono);font-weight:700;font-size:13px;padding:2px 6px;border-radius:4px;display:inline-block;min-width:38px;text-align:center}
+.s0,.s1,.s2{background:rgba(234,57,67,.16);color:#ff6b73}
+.s3,.s4{background:rgba(240,180,41,.13);color:#d9a02a}
+.s5,.s6{background:rgba(240,180,41,.2);color:var(--amber)}
+.s7{background:rgba(22,199,132,.16);color:#3fd39b}
+.s8,.s9,.s10{background:rgba(22,199,132,.26);color:var(--green)}
+
+/* ---- calendar ---- */
+.caltable{width:100%;border-collapse:collapse;font-size:13px}
+.caltable th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;
+  letter-spacing:.5px;padding:6px 8px;border-bottom:1px solid var(--border);position:sticky;
+  top:var(--sticky-top);background:var(--bg);z-index:5;
+  /* The row underneath scrolls behind this, so it needs an opaque background AND a solid
+     bottom edge; a transparent sticky header is what made rows look like they were
+     bleeding through it. */
+  box-shadow:0 1px 0 var(--border)}
+.caltable td{padding:5px 8px;border-bottom:1px solid #151c26}
+.caltable tr.today{background:rgba(90,200,250,.06)}
+.caltable tr.avail td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.caltable tr:hover{background:var(--panel2)}
+.phaserow td{background:var(--panel2);color:var(--accent);font-family:var(--mono);font-size:11px;
+  text-transform:uppercase;letter-spacing:1px;padding:7px 8px;border-top:1px solid var(--border)}
+.phaserow .blurb{color:var(--muted);text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:12px}
+.wd{color:var(--muted);font-family:var(--mono);font-size:12px}
+.wk{color:var(--accent)}
+.availbtn{background:none;border:1px solid var(--border);border-radius:4px;color:var(--dim);
+  cursor:pointer;font-size:10px;font-family:var(--mono);padding:1px 5px}
+.availbtn.on{border-color:var(--accent);color:var(--accent);background:rgba(90,200,250,.1)}
+.huntdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:5px;vertical-align:middle}
+.huntdot.saw{background:var(--green)}.huntdot.none{background:var(--dim)}
+
+/* ---- factor bars ---- */
+.fac{display:grid;grid-template-columns:150px 1fr 56px;gap:8px;align-items:center;margin:3px 0;font-size:12px}
+.fac .name{color:var(--muted)}
+.fac .track{position:relative;height:14px;background:var(--panel2);border-radius:3px;border:1px solid #151c26}
+.fac .track .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--dim)}
+.fac .track .fill{position:absolute;top:2px;bottom:2px;border-radius:2px}
+.fac .track .fill.pos{background:var(--green-dim);left:50%}
+.fac .track .fill.neg{background:var(--red-dim);right:50%}
+.fac .val{font-family:var(--mono);text-align:right;font-size:11px}
+.fac.zero .name,.fac.zero .val{color:var(--dim)}
+
+/* ---- stands ---- */
+.stand{border:1px solid var(--border);border-radius:7px;padding:9px 11px;margin-bottom:7px;background:var(--panel2)}
+.stand.safe{border-left:3px solid var(--green)}
+.stand.caution{border-left:3px solid var(--amber)}
+.stand.unsafe{border-left:3px solid var(--red)}
+.stand.unknown{border-left:3px solid var(--dim)}
+.stand .hd{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.stand .nm{font-weight:600}
+.badge{font-size:10px;font-family:var(--mono);padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px}
+.badge.safe{background:rgba(22,199,132,.16);color:var(--green)}
+.badge.caution{background:rgba(240,180,41,.16);color:var(--amber)}
+.badge.unsafe{background:rgba(234,57,67,.16);color:var(--red)}
+.badge.unknown{background:rgba(107,122,141,.16);color:var(--muted)}
+.badge.manual{background:rgba(90,200,250,.14);color:var(--accent)}
+.note{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5}
+.note.thermal{border-left:2px solid var(--amber);padding-left:8px;color:#c2a24a}
+
+/* ---- map ---- */
+#map{height:min(68vh,640px);border-radius:9px;border:1px solid var(--border);background:var(--panel2)}
+/* Leaflet ships its control corners at z-index 1000, which put the zoom buttons and the
+   layer switcher on top of the app header and tab bar as the map scrolled under them.
+   Drop them below nav (590) and header (600) so they float above the map and nothing
+   else. The map's own panes sit at Leaflet's default 400. */
+.leaflet-top,.leaflet-bottom{z-index:500}
+.leaflet-control-attribution{z-index:500}
+.leaflet-container{background:#0d131c;font-family:var(--sans)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel);color:var(--text);border:1px solid var(--border)}
+.leaflet-popup-content{margin:10px 12px;font-size:13px}
+.leaflet-bar a{background:var(--panel);color:var(--text);border-color:var(--border)}
+.leaflet-bar a:hover{background:var(--panel3)}
+.leaflet-control-layers{background:var(--panel);color:var(--text);border:1px solid var(--border)}
+.pin{border-radius:50%;border:2px solid #0a0e14;box-shadow:0 0 0 1px rgba(255,255,255,.25);
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:700;color:#0a0e14}
+.placing{outline:2px solid var(--accent);outline-offset:-2px}
+.ptrow{display:flex;align-items:center;gap:9px;padding:6px 8px;border-bottom:1px solid #151c26;font-size:13px}
+.ptrow:hover{background:var(--panel2)}
+.swatch{width:11px;height:11px;border-radius:3px;flex:none}
+
+/* ---- wind rose ---- */
+.rose{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin-top:8px}
+.rose div{font-family:var(--mono);font-size:10px;text-align:center;padding:4px 2px;border-radius:3px;
+  border:1px solid var(--border);cursor:default}
+.rose .safe{background:rgba(22,199,132,.16);color:var(--green);border-color:var(--green-dim)}
+.rose .caution{background:rgba(240,180,41,.13);color:var(--amber)}
+.rose .unsafe{background:rgba(234,57,67,.1);color:#a8505a}
+.rose .tagged{outline:1px solid var(--accent)}
+
+/* ---- forms ---- */
+label{display:block;font-size:11px;color:var(--muted);margin:9px 0 3px;text-transform:uppercase;letter-spacing:.5px}
+input[type=text],input[type=date],input[type=number],select,textarea{
+  width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:7px 9px;font-size:13px;font-family:var(--sans)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:58px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1;min-width:130px}
+.seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.seg button{background:var(--panel);border:none;color:var(--muted);padding:6px 13px;cursor:pointer;font-size:12px;flex:1}
+#modeToggle button{padding:3px 11px;font-size:11px;font-family:var(--mono)}
+.seg button.active{background:var(--border);color:var(--text)}
+.check{display:flex;align-items:center;gap:7px;margin:9px 0;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0}
+.check input{width:auto}
+.windpick{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.windpick button{background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+  border-radius:4px;padding:3px 7px;font-size:11px;font-family:var(--mono);cursor:pointer}
+.windpick button.on{background:rgba(90,200,250,.15);border-color:var(--accent);color:var(--accent)}
+
+/* ---- tables ---- */
+table.data{width:100%;border-collapse:collapse;font-size:12.5px}
+table.data th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;
+  letter-spacing:.5px;padding:7px 8px;border-bottom:1px solid var(--border)}
+table.data td{padding:6px 8px;border-bottom:1px solid #151c26;vertical-align:top}
+table.data tr:hover{background:var(--panel2)}
+.conf{font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:3px;text-transform:uppercase}
+.conf.observed{background:rgba(90,200,250,.14);color:var(--accent)}
+.conf.forecast{background:rgba(22,199,132,.14);color:var(--green)}
+.conf.outlook{background:rgba(240,180,41,.14);color:var(--amber)}
+.conf.climatology{background:rgba(107,122,141,.14);color:var(--muted)}
+
+.banner{border:1px solid var(--border);border-left:3px solid var(--accent);background:var(--panel2);
+  border-radius:7px;padding:11px 13px;margin-bottom:12px;font-size:13px;line-height:1.55}
+.banner.warn{border-left-color:var(--amber)}
+.banner.empty{border-left-color:var(--dim);color:var(--muted)}
+.banner h4{margin:0 0 5px;font-size:12px;color:var(--text);text-transform:none;letter-spacing:0}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #151c26}
+.kv span:first-child{color:var(--muted)}
+.kv span:last-child{font-family:var(--mono)}
+.spark{display:flex;gap:1px;align-items:flex-end;height:26px}
+.spark i{flex:1;background:var(--border);border-radius:1px 1px 0 0;min-height:1px}
+
+@media (max-width:760px){
+  main{padding:12px}
+  .seasonrow,.seasonhead{grid-template-columns:18px 1fr 1fr 30px;grid-auto-rows:min-content}
+  .seasonhead{display:none}
+  .fac{grid-template-columns:110px 1fr 46px}
+  .two{grid-template-columns:1fr}
+  nav.tabs button{padding:10px 12px;font-size:12px}
+  .brand h1{font-size:15px}
+  #map{height:56vh}
+}
+
+/* ---- stand matrix ---- */
+.caltable.matrix th{font-size:10.5px;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+.mcell{text-align:left;white-space:nowrap}
+.mcell.unsafe{opacity:.45}
+.vm{font-family:var(--mono);font-size:10px;margin-left:3px}
+.vm.safe{color:var(--green)}
+.vm.caution{color:var(--amber)}
+.vm.unsafe{color:var(--red)}
+.vm.unknown{color:var(--dim)}
+.mcell .sc{min-width:32px;padding:1px 3px;font-size:11.5px}
+.mcell .sc+.sc{margin-left:4px}
+.pickcell{white-space:nowrap;font-size:11.5px}
+.pick{margin-left:7px}
+.pick i{font-style:normal;font-family:var(--mono);font-size:9px;padding:1px 4px;border-radius:3px;margin-right:3px}
+.pick i.pb{background:rgba(240,180,41,.18);color:var(--buck)}
+.pick i.pg{background:rgba(22,199,132,.18);color:var(--general)}
+
+/* ---- collapsible panels ---- */
+details.coll{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--accent);
+  border-radius:7px;margin-bottom:8px;overflow:hidden}
+details.coll.warn{border-left-color:var(--amber)}
+details.coll.empty{border-left-color:var(--dim)}
+details.coll>summary{cursor:pointer;padding:7px 11px;font-size:12.5px;list-style:none;
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;user-select:none}
+details.coll>summary::-webkit-details-marker{display:none}
+details.coll>summary::before{content:"▸";color:var(--muted);font-size:10px;flex:none;transition:transform .12s}
+details.coll[open]>summary::before{transform:rotate(90deg)}
+details.coll>summary:hover{background:var(--panel3)}
+details.coll>summary b{color:var(--text)}
+details.coll>summary .sum-note{color:var(--muted);font-size:12px}
+details.coll .coll-body{padding:2px 12px 12px 28px;font-size:13px;line-height:1.55;color:var(--muted)}
+details.coll .coll-body b{color:var(--text)}
+
+/* compact season timeline, always visible inside the summary */
+.tl{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tl span{font-family:var(--mono);font-size:10.5px;padding:2px 6px;border-radius:4px;
+  background:var(--panel);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+.tl span b{color:var(--text);font-weight:600}
+.tl span.hot{border-color:var(--green-dim);color:var(--green)}
+.tl span.cold{border-color:var(--red-dim);color:#c0626a}
+.tl span.warm{border-color:var(--amber);color:var(--amber)}
+
+/* cover marker buttons: visually subordinate to the things that actually score */
+.cover-sep{color:var(--dim);font-size:10px;font-family:var(--mono);text-transform:uppercase;
+  letter-spacing:1px;margin:0 6px 0 12px;border-left:1px solid var(--border);padding-left:12px}
+.btn.cover-btn{opacity:.72;font-size:11px}
+.btn.cover-btn:hover{opacity:1}
+
+/* ---- trail camera hour chart ---- */
+.hourchart{display:flex;align-items:flex-end;gap:2px;height:120px;padding:4px 0;border-bottom:1px solid var(--border)}
+.hourchart .hb{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;position:relative}
+.hourchart .bar{width:100%;border-radius:2px 2px 0 0;min-height:1px;background:var(--dim)}
+.hourchart .am .bar{background:var(--accent)}
+.hourchart .pm .bar{background:var(--amber)}
+.hourchart .off .bar{background:#2a3444}
+.hourchart .hl{position:absolute;bottom:-15px;font-size:9px;color:var(--dim);font-family:var(--mono)}
+.legend{display:inline-block;width:9px;height:9px;border-radius:2px;margin:0 4px 0 10px;vertical-align:middle}
+.legend.am{background:var(--accent)}.legend.pm{background:var(--amber)}.legend.off{background:#2a3444}
+
+/* ---- season colour coding ---- */
+.seasoncell{position:relative;padding-left:14px !important}
+.seasonstripe{position:absolute;left:3px;top:4px;bottom:4px;width:4px;border-radius:2px;display:block}
+.slegend{display:inline-flex;align-items:center;gap:5px;margin-right:12px;font-size:11px;
+  font-family:var(--mono);color:var(--muted)}
+.slegend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+/* ---- seasons editor ---- */
+.seasonrow{display:grid;grid-template-columns:18px 1.3fr 1fr 1fr 1fr 48px 30px;gap:7px;align-items:center;margin-bottom:7px}
+.seasonrow input[type=text],.seasonrow input[type=date],.seasonrow select{padding:5px 7px;font-size:12px}
+.seasonrow input[type=color]{width:100%;height:28px;padding:2px;background:var(--panel2);
+  border:1px solid var(--border);border-radius:6px;cursor:pointer}
+.seasonrow .del{background:none;border:1px solid var(--border);color:var(--red);border-radius:5px;
+  cursor:pointer;font-size:14px;line-height:1;padding:5px 0}
+.seasonrow .del:hover{border-color:var(--red)}
+.seasonhead{display:grid;grid-template-columns:18px 1.3fr 1fr 1fr 1fr 48px 30px;gap:7px;
+  font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+
+/* anything carrying an explanatory title gets a hint that it is hoverable */
+.help{cursor:help}
+.caltable th.help{text-decoration:underline dotted var(--dim);text-underline-offset:3px}
+
+/* ---- column key ---- */
+.keygrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.keysec h5{margin:0 0 7px;font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.7px}
+.keysec p{margin:5px 0;font-size:12.5px;line-height:1.5}
+.keysec ul{margin:5px 0 0 15px;padding:0;font-size:12.5px;line-height:1.6}
+.keysec li{margin:4px 0}
+.keyrow{display:grid;grid-template-columns:52px 1fr;gap:9px;align-items:start;margin:6px 0;font-size:12.5px;line-height:1.5}
+.keyrow .conf{justify-self:start}

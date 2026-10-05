@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>DeerHunter</title>
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🦌</text></svg>">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>DEERHUNTER</h1>
+    <span class="tag" id="propTag">loading</span>
+  </div>
+  <div class="chips" id="chips"></div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="calendar" class="active">Season</button>
+  <button data-tab="near">Near-term</button>
+  <button data-tab="stands">Stands</button>
+  <button data-tab="map">Map</button>
+  <button data-tab="log">Sit log</button>
+  <button data-tab="model">Model</button>
+</nav>
+
+<main>
+  <!-- ---------------- SEASON CALENDAR ---------------- -->
+  <section id="tab-calendar">
+    <div class="toolbar">
+      <div class="seg" id="calFilter">
+        <button data-f="all" class="active">All days</button>
+        <button data-f="avail">Available only</button>
+        <button data-f="best">Top 15</button>
+      </div>
+      <button class="btn sm" id="markWeekends">Mark weekends available</button>
+      <button class="btn sm" id="clearAvail">Clear all</button>
+      <span class="right muted mono" id="calLegend"></span>
+    </div>
+    <div id="highlights"></div>
+    <div class="card flush">
+      <table class="caltable" id="calTable">
+        <thead><tr>
+          <th style="width:88px">Date</th><th style="width:38px"></th>
+          <th style="width:112px">AM buck / deer</th>
+          <th style="width:112px">PM buck / deer</th>
+          <th style="width:118px">Conditions</th>
+          <th style="width:58px">Moon</th>
+          <th>Rut</th>
+          <th style="width:82px">Free</th>
+        </tr></thead>
+        <tbody id="calBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ---------------- NEAR TERM ---------------- -->
+  <section id="tab-near" class="hide">
+    <div class="toolbar">
+      <div class="seg" id="nearRange">
+        <button data-d="7" class="active">7 days</button>
+        <button data-d="14">14 days</button>
+      </div>
+      <span class="right muted" style="font-size:12px" id="nearNote"></span>
+    </div>
+    <div id="nearBody"></div>
+  </section>
+
+  <!-- ---------------- STANDS ---------------- -->
+  <section id="tab-stands" class="hide">
+    <div id="standsBody"></div>
+  </section>
+
+  <!-- ---------------- MAP ---------------- -->
+  <section id="tab-map" class="hide">
+    <div class="toolbar" id="placeBar">
+      <span class="muted" style="font-size:12px">Add:</span>
+      <span id="placeButtons"></span>
+      <span class="seg hide" id="modeToggle" style="height:26px">
+        <button data-m="pin" class="active" title="A single point: a seep, a lone white oak">Pin</button>
+        <button data-m="area" title="Draw the boundary: a field, a plot, a pond, a bedding thicket">Area</button>
+        <button data-m="line" title="Draw the run: a creek, a drainage, a hedgerow">Line</button>
+      </span>
+      <button class="btn sm" id="placeLine" title="Reference only: game trails and access routes never affect the score">Draw trail</button>
+      <button class="btn sm danger hide" id="cancelPlace">Cancel</button>
+      <span class="right muted" style="font-size:12px" id="mapHint">Pick a marker type, then click the map.</span>
+    </div>
+    <div id="map"></div>
+    <div class="grid2" style="margin-top:12px">
+      <div class="card">
+        <h3>Points</h3>
+        <div id="pointList"></div>
+      </div>
+      <div class="card" id="editorCard">
+        <h3>Editor</h3>
+        <div id="editor" class="muted" style="font-size:13px">Select a point on the map or in the list.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------- SIT LOG ---------------- -->
+  <section id="tab-log" class="hide">
+    <div class="grid2">
+      <div class="card">
+        <h3>Log a sit</h3>
+        <p class="muted" style="font-size:12px;margin-top:0">
+          Four fields. Conditions get attached automatically from the tool's own weather history,
+          so there is nothing to remember about wind or temperature later.
+        </p>
+        <div class="row">
+          <div><label>Date</label><input type="date" id="sitDate"></div>
+          <div><label>Slot</label>
+            <div class="seg" id="sitSlot"><button data-s="AM" class="active">AM</button><button data-s="PM">PM</button></div>
+          </div>
+        </div>
+        <label>Stand</label>
+        <select id="sitStand"></select>
+        <div class="check"><input type="checkbox" id="sitSaw"><label for="sitSaw" style="margin:0;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text)">Saw deer</label></div>
+        <div class="row">
+          <div><label>Deer seen</label><input type="number" id="sitCount" value="0" min="0"></div>
+          <div><label>Bucks seen</label><input type="number" id="sitBucks" value="0" min="0"></div>
+        </div>
+        <label>Notes (optional)</label>
+        <textarea id="sitNotes" placeholder="Wind swirled last 20 minutes. Two does at the pond edge."></textarea>
+        <div style="margin-top:11px"><button class="btn primary" id="saveSit">Save sit</button>
+          <span class="muted" id="sitMsg" style="font-size:12px;margin-left:9px"></span></div>
+      </div>
+      <div class="card">
+        <h3>History</h3>
+        <div id="sitList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------- MODEL ---------------- -->
+  <section id="tab-model" class="hide">
+    <div id="modelBody"></div>
+  </section>
+</main>
+
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script src="/app.js" type="module"></script>
+</body>
+</html>

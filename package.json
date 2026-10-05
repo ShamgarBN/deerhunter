@@ -1,0 +1,30 @@
+{
+  "name": "deerhunter",
+  "version": "1.0.0",
+  "description": "Rifle-season hunt-day predictor for a single whitetail property. Scores every AM and PM slot of gun season on two independent axes (mature-buck movement, general deer activity) and filters stands by scent safety against the forecast wind.",
+  "type": "module",
+  "bin": {
+    "deerhunter": "src/cli.js"
+  },
+  "engines": {
+    "//": "Verified working on Node 24.14 (better-sqlite3 resolved a prebuilt arm64 binary). Scuttlebutt pins 20/22 because it hit a source build there; if better-sqlite3 tries to compile from source here, drop to Node 22.",
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "node src/cli.js setup",
+    "start": "node src/server.js",
+    "refresh": "node src/cli.js refresh",
+    "score": "node src/cli.js score",
+    "alert": "node src/cli.js alert",
+    "reweight": "node src/cli.js reweight",
+    "normals": "node src/cli.js normals",
+    "test-discord": "node src/cli.js test-discord"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2",
+    "leaflet": "^1.9.4",
+    "node-cron": "^3.0.3",
+    "suncalc": "^1.9.0"
+  }
+}

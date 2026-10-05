@@ -1,0 +1,118 @@
+{
+  "_comment": "Runtime config. Scoring weights live in scoring.json; map points live in map.json.",
+  "property": {
+    "_comment": "Run `npm run setup -- --lat <lat> --lon <lon> --name \"My place\"` to fill this in. It writes config/config.local.json, which is gitignored and overrides this file, so your actual property never lands in version control.",
+    "name": "My property",
+    "lat": null,
+    "lon": null,
+    "county": null,
+    "nearestTown": null,
+    "timezone": "America/New_York",
+    "acresApprox": 100
+  },
+  "nws": {
+    "_comment": "US only. Resolved once by setup from /points/{lat},{lon} and cached. Outside the US leave gridId null: wind, pressure and temperature still come from Open-Meteo, and only the NWS-sourced precipitation and sky cover are lost.",
+    "userAgent": "DeerHunter/1.0 (set a contact address here; NWS asks for one)",
+    "gridId": null,
+    "gridX": null,
+    "gridY": null,
+    "observationStation": null,
+    "minRequestIntervalMs": 400,
+    "maxRetries": 4,
+    "backoffBaseMs": 1000
+  },
+  "forecast": {
+    "forecastConfidenceDays": 7,
+    "_confidenceNote": "Days 0-7 use real NWS forecast data (confidence: forecast). Days 8-14 use NWS where it still reaches, else climatology (confidence: outlook). Past day 14 it is rut curve + climate normals only (confidence: climatology).",
+    "extendedOutlookDays": 14,
+    "nearTermDays": 14
+  },
+  "drought": {
+    "_comment": "Multiplies the food and water proximity weights. 0 in a normal-rainfall year, which is the correct setting for most places most years.",
+    "severity": 0,
+    "_severityScale": "0 = normal rainfall, 0.4 = abnormally dry (D0-D1), 0.75 = severe (D2-D3), 1.0 = extreme (D4)",
+    "asOf": null,
+    "note": "Check your local drought monitor and set this."
+  },
+  "alerts": {
+    "enabled": true,
+    "scoreThreshold": 7.5,
+    "_thresholdNote": "Deliberately uncalibrated. Run a season, look at the real score distribution on the Calendar tab, then set this to roughly the top 10-15% of slots. Too low and the alerts become noise.",
+    "onlyWithinForecastWindow": true,
+    "_windowNote": "true = only alert on days with real NWS data behind them. Flip to false to also hear about climatology-only outlook days, which are much softer.",
+    "alertOnBuckScore": true,
+    "alertOnGeneralScore": true,
+    "onlyAvailableDays": false,
+    "_availableNote": "true = only alert on days marked available on the Calendar tab. Useful once your PTO is planned; noisy before that.",
+    "cooldownHours": 20
+  },
+  "discord": {
+    "enabled": true,
+    "webhookUrl": "",
+    "username": "DeerHunter",
+    "_webhookNote": "Intentionally empty in the tracked file. The real webhook lives in config/config.local.json (gitignored) or the DEERHUNTER_DISCORD_WEBHOOK environment variable. A webhook URL is a bearer credential: anyone holding it can post to the channel."
+  },
+  "schedule": {
+    "_comment": "America/New_York. refreshCron pulls weather and recomputes every slot in the season; alertCron checks thresholds and fires Discord.",
+    "refreshCron": "20 3 * * *",
+    "alertCron": "0 7 * * *",
+    "enabled": true
+  },
+  "server": {
+    "port": 8091,
+    "host": "0.0.0.0",
+    "_hostNote": "0.0.0.0 so the Tailscale interface can reach it from your phone. No auth by design: single hunter, private tailnet."
+  },
+  "map": {
+    "defaultZoom": 16,
+    "maxZoom": 19,
+    "defaultLayer": "esri-imagery",
+    "_layerNote": "All four basemaps are keyless and were reachable on 2026-09-18. Esri caps out around z19 for this area; USGS Topo is the one with contour lines for terrain tagging."
+  },
+  "scent": {
+    "safeAngleThresholdDeg": 115,
+    "_thresholdNote": "Scent must blow at least this far off the bearing to a bedding or food point for the stand to read safe. 110-120 is the sane range; raise it to be stricter.",
+    "beddingRadiusYards": 450,
+    "foodRadiusYards": 350,
+    "_radiusNote": "Points farther than this from a stand are ignored in the scent check. Scent does travel farther, but past a few hundred yards it has diffused enough that stand choice is not what saves you.",
+    "grazingAngleDeg": 60,
+    "_grazingNote": "Below this angle the scent plume is a direct hit on the point; between here and safeAngleThresholdDeg it is a marginal graze. Scent cones spread roughly 30-45 degrees either side, so 60 is a deliberately conservative read of 'direct'."
+  },
+  "climate": {
+    "_comment": "Daily climate normals for the temperature-departure factor. setup computes these for your coordinates from 30 years of reanalysis. US users wanting NOAA station normals instead: npm run normals -- --station <GHCN id>",
+    "normalsFile": "normals.json"
+  },
+  "seasons": [
+    {
+      "id": "archery",
+      "label": "Archery",
+      "weapon": "archery",
+      "start": "2026-09-12",
+      "end": "2026-10-02",
+      "color": "#16c784",
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "blackpowder",
+      "label": "Blackpowder",
+      "weapon": "muzzleloader",
+      "start": "2026-10-03",
+      "end": "2026-10-16",
+      "color": "#f0b429",
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "gun",
+      "label": "Gun",
+      "weapon": "rifle",
+      "start": "2026-10-17",
+      "end": "2027-01-01",
+      "color": "#5ac8fa",
+      "enabled": true,
+      "notes": ""
+    }
+  ],
+  "_seasonsNote": "Define your own seasons here or on the Settings tab. Each has a date range, a weapon and a colour. Weapon is not cosmetic: it scales the scent-safety threshold, because an archer needs the deer inside 30 yards while a rifle hunter does not, so the same wind can be safe for gun and blown for bow. Seasons may overlap; where they do, the strictest open weapon governs. The tool scores the union of all enabled seasons. Dates are set by state and usually by county - check your own regs, these defaults are one NC zone."
+}

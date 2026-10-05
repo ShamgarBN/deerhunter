@@ -1,0 +1,140 @@
+{
+  "_comment": "Property map. Points are real WGS84 lat/lng, not percentage offsets from an image, because the map is a live Leaflet basemap rather than a static screenshot. Real coordinates mean stand-to-bedding bearings are true compass bearings and distances are real yards, which is what makes the scent geometry and the drought-weighted proximity scoring honest. Edit this by clicking the Map tab, not by hand. This is the tracked example. Your real map lives in config/map.json, which is gitignored: it holds exact coordinates for your stands, bedding and food, and that is not something to publish.",
+  "center": {
+    "lat": null,
+    "lon": null
+  },
+  "defaultZoom": 16,
+  "imageOverlay": {
+    "_comment": "Optional. Pin an onX or plat-map screenshot on top of the aerial when it shows boundaries the satellite does not. Drop the file in public/overlays/ and set the corner coordinates; the Map tab has an opacity slider and a toggle.",
+    "enabled": false,
+    "file": null,
+    "bounds": {
+      "north": null,
+      "south": null,
+      "east": null,
+      "west": null
+    },
+    "opacity": 0.6
+  },
+  "markerTypes": {
+    "stand": {
+      "label": "Stand",
+      "color": "#5ac8fa",
+      "glyph": "S",
+      "scoredAs": "stand",
+      "note": "Carries safe winds, terrain tag, and last-hunted pressure."
+    },
+    "food": {
+      "label": "Food",
+      "color": "#16c784",
+      "glyph": "F",
+      "scoredAs": "food",
+      "note": "Ag field, food plot, mast stand, hedgerow. Pin a single tree, draw an AREA for a field or plot, draw a LINE for a hedgerow or a mast strip along an edge. Drives the food-proximity factor and the scent check.",
+      "areaCapable": true,
+      "lineCapable": true
+    },
+    "water": {
+      "label": "Water",
+      "color": "#4c9aff",
+      "glyph": "W",
+      "scoredAs": "water",
+      "note": "Pond, creek, seep. Pin a seep, draw an AREA for a pond, draw a LINE for a creek or the wet stretch of a drainage. A creek pinned at one end reports a wildly wrong distance to a stand partway along it. Only points flagged active count toward scoring.",
+      "areaCapable": true,
+      "lineCapable": true
+    },
+    "bedding": {
+      "label": "Bedding",
+      "color": "#f0b429",
+      "glyph": "B",
+      "scoredAs": "bedding",
+      "note": "Known or suspected. Drawing the thicket boundary rather than pinning its middle matters most here: an area subtends a much wider angle from a nearby stand, so the scent check gets correctly stricter. Weighted heaviest of all features, because getting winded by bedded deer is what ruins a sit.",
+      "areaCapable": true,
+      "lineCapable": true
+    },
+    "trail": {
+      "label": "Game trail",
+      "color": "#c084fc",
+      "glyph": "T",
+      "scoredAs": "travel",
+      "note": "Drawn as a line, not a pin. Reference for stand placement; does not move the score."
+    },
+    "scrape": {
+      "label": "Scrape / rub",
+      "color": "#ea3943",
+      "glyph": "R",
+      "scoredAs": "sign",
+      "note": "Rut sign. Reference only for now; a future version could weight scrape density during seeking."
+    },
+    "access": {
+      "label": "Access route",
+      "color": "#6b7a8d",
+      "glyph": "A",
+      "scoredAs": "access",
+      "note": "Drawn as a line. How you walk in. Reference for whether your entry crosses bedding or a food source in the dark."
+    },
+    "parking": {
+      "label": "Parking",
+      "color": "#c9d4e3",
+      "glyph": "P",
+      "scoredAs": "access",
+      "note": "Where you leave the truck."
+    },
+    "other": {
+      "label": "Other",
+      "color": "#8b9bb0",
+      "glyph": "?",
+      "scoredAs": "none",
+      "note": "Anything you want to remember and nothing should score."
+    },
+    "woods": {
+      "label": "Woods",
+      "color": "#3f6b4d",
+      "glyph": "",
+      "scoredAs": "cover",
+      "areaCapable": true,
+      "lineCapable": false,
+      "backgroundOnly": true,
+      "dim": true,
+      "note": "Timber, thicket, pines. Drawn as a background area and rendered dim on purpose: it is context, not a target. Overrides the satellite land-cover reading wherever you draw it, on the same principle as your tagged safe winds."
+    },
+    "field": {
+      "label": "Field / open",
+      "color": "#7a6a3a",
+      "glyph": "",
+      "scoredAs": "cover",
+      "areaCapable": true,
+      "lineCapable": false,
+      "backgroundOnly": true,
+      "dim": true,
+      "note": "Ag ground, pasture, clearcut, power line. Background context. Mark a field here only to describe cover; mark it as Food if deer are actually eating it."
+    }
+  },
+  "terrainPositions": {
+    "ridge": {
+      "label": "Ridge / upper slope",
+      "tier": 3,
+      "note": "Evening thermals fall away downhill from you. Generally the safer evening position."
+    },
+    "midslope": {
+      "label": "Midslope / bench",
+      "tier": 2,
+      "note": "Transitional. Thermals are least predictable here."
+    },
+    "valley": {
+      "label": "Valley / bottom",
+      "tier": 1,
+      "note": "Evening thermal drain. Falling thermals pool here and can carry your scent from a wide area into the low ground."
+    },
+    "flat": {
+      "label": "Flat / no relief",
+      "tier": 2,
+      "note": "Thermal effects minimal. Wind direction is the whole story."
+    }
+  },
+  "points": [],
+  "_pointsNote": "Empty until Ben pins or draws them on the Map tab. Every point has { id, type, label, lat, lon, notes, createdAt }. A point may ALSO carry a shape, which is how a feature with real extent is represented: shape:{type:'polygon', ring:[[lat,lon],...], acres} for an area, or shape:{type:'line', path:[[lat,lon],...], lengthYards} for a creek, drainage or hedgerow. When a shape is present, lat/lon hold the derived label anchor (ring centroid, or the midpoint by distance along a path) and are used only for the map marker; ALL scoring distances measure to the nearest point on the shape (zero inside a polygon), and the scent check samples the whole boundary or run and keeps the worst case. Type-specific fields: water has active (bool); stand has terrain, safeWinds (16-point compass, AUTHORITATIVE over computed geometry) and height; bedding has terrain. Trails and access routes stay in the separate 'lines' array: they are reference only and never score.",
+  "lines": [],
+  "_linesNote": "Game trails and access routes. Schema: { id, type, label, coords: [[lat,lon], ...], notes, createdAt }.",
+  "_coverNote": "Cover comes from two places. The tool samples NLCD land cover (30 m, 2021, free and keyless via MRLC) at every stand and marked feature, and detects edge habitat by sampling a ring about a bowshot out. Anywhere Ben draws a 'woods' or 'field' area, that wins: he has walked it and the satellite has not. Cover is CONTEXT AND VALIDATION ONLY and carries no scoring weight, because land cover is not deer preference and weighting it without evidence would be the folklore-driven modeling this tool otherwise avoids."
+}
