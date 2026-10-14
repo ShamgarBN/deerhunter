@@ -310,3 +310,16 @@ details.coll .coll-body b{color:var(--text)}
 .keysec li{margin:4px 0}
 .keyrow{display:grid;grid-template-columns:52px 1fr;gap:9px;align-items:start;margin:6px 0;font-size:12.5px;line-height:1.5}
 .keyrow .conf{justify-self:start}
+
+/* ---- collapsed past days ---- */
+.pastrow td{background:var(--panel2);border-bottom:1px solid var(--border);padding:0 !important}
+.pasttoggle{width:100%;background:none;border:none;color:var(--muted);cursor:pointer;
+  text-align:left;padding:7px 10px;font-size:11.5px;font-family:var(--mono);
+  display:flex;align-items:center;gap:8px}
+.pasttoggle:hover{background:var(--panel3);color:var(--text)}
+.pasttoggle .caret{color:var(--dim);font-size:10px}
+.pasthunted{background:rgba(22,199,132,.14);color:var(--green);border-radius:4px;
+  padding:1px 7px;font-size:10px}
+/* a past day shown by choice is dimmed, so it never reads as upcoming */
+.caltable tr.gone td{opacity:.5}
+.caltable tr.gone:hover td{opacity:.85}

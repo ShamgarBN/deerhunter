@@ -11,7 +11,7 @@
 // since you last sat it, and distance to food and water. Only the first two change day
 // to day, and wind only exists inside the forecast window.
 
-import { api, $, $$, esc, scoreClass, fmtScore, compass, collapsible, wireCollapsibles } from '/util.js';
+import { api, $, $$, esc, scoreClass, fmtScore, compass, collapsible, wireCollapsibles, isOpen, rememberOpen } from '/util.js';
 
 let onlyAvailable = false;
 let data = null;
@@ -59,6 +59,12 @@ function pickHtml(row) {
 function renderMatrix() {
   let rows = data.matrix;
   if (onlyAvailable) rows = rows.filter((r) => r.available);
+
+  // Same treatment as the season calendar: slots already gone are history, not a choice.
+  const past = rows.filter((r) => r.date < data.today);
+  const allPast = past.length === rows.length;
+  const showPast = allPast || isOpen('stands-past', false);
+  if (!showPast) rows = rows.filter((r) => r.date >= data.today);
   if (!rows.length) {
     $('#standMatrix').innerHTML = '<div class="banner empty">No slots match. Mark days available on the Season tab, or switch the filter off.</div>';
     return;
@@ -66,13 +72,22 @@ function renderMatrix() {
 
   const stands = data.stands;
   let lastPhase = null;
+
+  const pastToggle = (past.length && !allPast)
+    ? `<tr class="pastrow"><td colspan="${stands.length + 4}">
+        <button class="pasttoggle" id="togglePastStands">
+          <span class="caret">${showPast ? '\u25be' : '\u25b8'}</span>
+          ${showPast ? 'Hide' : 'Show'} ${past.length} earlier slot${past.length === 1 ? '' : 's'}
+        </button></td></tr>`
+    : '';
+
   const body = rows.map((r) => {
     let phaseRow = '';
     if (r.rutPhase !== lastPhase) {
       phaseRow = `<tr class="phaserow"><td colspan="${stands.length + 4}">${esc(r.rutPhase)}</td></tr>`;
       lastPhase = r.rutPhase;
     }
-    return `${phaseRow}<tr class="${r.available ? 'avail' : ''}">
+    return `${phaseRow}<tr class="${r.date < data.today ? 'gone ' : ''}${r.available ? 'avail' : ''}">
       <td class="mono" style="font-size:11.5px">${r.date.slice(5)}</td>
       <td class="wd ${r.weekday === 'Sat' || r.weekday === 'Sun' ? 'wk' : ''}">${r.weekday}</td>
       <td class="mono" style="font-size:11.5px">${r.slot}</td>
@@ -91,9 +106,17 @@ function renderMatrix() {
         ${stands.map((s) => `<th title="${esc(s.label)}">${esc(s.label)}<br><span class="dim" style="font-weight:400">buck deer</span></th>`).join('')}
         <th style="width:172px">Wind &middot; pick</th>
       </tr></thead>
-      <tbody>${body}</tbody>
+      <tbody>${pastToggle}${body}</tbody>
     </table>
   </div>`;
+
+  const t = $('#togglePastStands');
+  if (t) {
+    t.onclick = () => {
+      rememberOpen('stands-past', !isOpen('stands-past', false));
+      renderMatrix();
+    };
+  }
 }
 
 function slotRow(s) {

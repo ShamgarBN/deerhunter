@@ -426,11 +426,13 @@ npm run alert          # check thresholds now
 Served from the Mac mini, reachable over Tailscale from a phone. No auth: single hunter,
 private tailnet.
 
-- **Season** — every day of gun season, AM and PM, both scores, banded by rut phase. Mark
-  which days you're actually free; a 9.9 on a Tuesday you can't take off is trivia. Filter
-  to available days or the top 15. The weekend button toggles: it reads the current state
-  and flips between marking every weekend and clearing them, and a **Clear all** button
-  appears whenever anything is marked.
+- **Season** — every day of your seasons, AM and PM, both scores, banded by rut phase and
+  striped with whichever seasons are open. Mark which days you're actually free; a 9.9 on a
+  Tuesday you can't take off is trivia. Filter to available days or the top 15. The weekend
+  button toggles between marking and clearing, and a **Clear all** appears whenever
+  anything is marked. **Days already past collapse** behind a one-line toggle so the table
+  opens on today; expand it and they show dimmed, with a count of how many you hunted. The
+  Stands matrix does the same.
 - **Stands** — which stand, on which day, at which time. A matrix of stands against every
   slot in the season, plus a per-stand card with its best slots, its best slots on days
   you're free, and how often it's scent-safe. Read the caveat at the top of that tab: rut

@@ -5,7 +5,7 @@
 // fetch fails, with the cache age shown in the header so a stale number never passes for
 // a live one.
 
-import { $, $$, esc, api, net, compass, scoreClass, fmtScore, collapsible, wireCollapsibles } from '/util.js';
+import { $, $$, esc, api, net, compass, scoreClass, fmtScore, collapsible, wireCollapsibles, isOpen, rememberOpen } from '/util.js';
 
 let state = {};
 let calendar = null;
@@ -244,8 +244,35 @@ function renderCalendar() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
+  // Days already gone are dead weight at the top of the table: by mid-season that is two
+  // or three weeks you scroll past every time you open the page.
+  //
+  // They collapse rather than disappear, because the hunt dots on them are your log. The
+  // toggle says how many are hidden and how many of those you actually hunted, so there
+  // is a reason to open it rather than a blank assertion that something is there.
+  //
+  // Nothing collapses once the whole season is behind you: hiding every row and leaving
+  // one grey line would read as a bug rather than a feature.
+  const past = days.filter((d) => d.date < today);
+  const allPast = past.length === days.length;
+  const showPast = allPast || isOpen('calendar-past', false);
+  const huntedPast = past.filter((d) => d.hunted).length;
+  if (!showPast) days = days.filter((d) => d.date >= today);
+
   let lastPhase = null;
   const rows = [];
+
+  // Rendered first so it sits above the earliest visible day.
+  if (past.length && !allPast) {
+    rows.push(`<tr class="pastrow"><td colspan="8">
+      <button class="pasttoggle" id="togglePast" title="${showPast ? 'Collapse the days that have already passed' : 'Show the days already gone, including any you hunted'}">
+        <span class="caret">${showPast ? '\u25be' : '\u25b8'}</span>
+        ${showPast ? 'Hide' : 'Show'} ${past.length} earlier day${past.length === 1 ? '' : 's'}
+        ${huntedPast ? `<span class="pasthunted">${huntedPast} hunted</span>` : ''}
+      </button>
+    </td></tr>`);
+  }
+
   for (const d of days) {
     if (calFilter === 'all' && d.rutPhase !== lastPhase) {
       const ph = calendar.phases.find((p) => p.key === d.rutPhase);
@@ -269,7 +296,7 @@ function renderCalendar() {
       ? `${open.map((x) => `${x.label} (${x.weapon})`).join(' + ')}${d.scent?.strictness > 1 ? ` — scent threshold tightened to ${Math.round((cfgScentThreshold) * d.scent.strictness)}° by ${d.scent.weaponLabel}` : ''}`
       : 'no season open';
 
-    rows.push(`<tr class="${d.date === today ? 'today ' : ''}${d.available.AM || d.available.PM ? 'avail' : ''}" data-date="${d.date}">
+    rows.push(`<tr class="${d.date === today ? 'today ' : ''}${d.date < today ? 'gone ' : ''}${d.available.AM || d.available.PM ? 'avail' : ''}" data-date="${d.date}">
       <td class="mono seasoncell" style="font-size:12px">
         <i class="seasonstripe" style="background:${stripe}" title="${esc(seasonTitle)}"></i><span title="${esc(seasonTitle)}">${d.date.slice(5)}</span>${conf ? `<span class="conf help ${conf}" style="margin-left:5px" title="${esc(`${CONFIDENCE_HELP[conf]?.short ?? conf} — ${CONFIDENCE_HELP[conf]?.text ?? ''}`)}">${conf.slice(0, 4).toUpperCase()}</span>` : ''}</td>
       <td class="wd ${isWeekend ? 'wk' : ''}">${wd}</td>
@@ -304,6 +331,14 @@ function renderCalendar() {
   const legend = (calendar.seasons ?? []).map((s2) =>
     `<span class="slegend" title="${esc(s2.weapon)} · ${s2.start} to ${s2.end}"><i style="background:${s2.color}"></i>${esc(s2.label)}</span>`).join('');
   $('#calLegend').innerHTML = `${legend}<span class="dim" style="margin-left:10px">buck &middot; deer</span>`;
+
+  const toggle = $('#togglePast');
+  if (toggle) {
+    toggle.onclick = () => {
+      rememberOpen('calendar-past', !isOpen('calendar-past', false));
+      renderCalendar();
+    };
+  }
 
   $$('#calBody .availbtn').forEach((b) => {
     b.onclick = async () => {
