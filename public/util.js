@@ -16,7 +16,9 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
 export const DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 export const compass = (deg) => (deg == null ? null : DIRS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16]);
 
-export const scoreClass = (v) => `sc s${Math.max(0, Math.min(10, Math.round(v ?? 0)))}`;
+// Retained for modules not yet migrated to the continuous ramp in viz.js. The stepped
+// classes no longer carry colour, so this is now just a hook for sizing.
+export const scoreClass = () => 'sc';
 export const fmtScore = (v) => (v == null ? '--' : v.toFixed(1));
 
 // Offline state, read by the header. Ben opens this from a stand with one bar of signal,

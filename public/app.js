@@ -5,7 +5,8 @@
 // fetch fails, with the cache age shown in the header so a stale number never passes for
 // a live one.
 
-import { $, $$, esc, api, net, compass, scoreClass, fmtScore, collapsible, wireCollapsibles, isOpen, rememberOpen } from '/util.js';
+import { $, $$, esc, api, net, compass, fmtScore, collapsible, wireCollapsibles, isOpen, rememberOpen } from '/util.js';
+import { ramp, stack, balanceWhenReady } from '/viz.js';
 
 let state = {};
 let calendar = null;
@@ -74,8 +75,8 @@ const BUCK_HELP = 'Buck score, 0-10. How likely a mature, rut-influenced buck is
 const DEER_HELP = 'General activity score, 0-10. How likely you are to see a deer at all, any age or sex. Driven more by food, water, stand pressure and weather than by rut phase.';
 
 function scoreCell(buck, general) {
-  return `<span class="${scoreClass(buck)} help" title="${BUCK_HELP}">${fmtScore(buck)}</span>
-          <span class="${scoreClass(general)} help" title="${DEER_HELP}" style="margin-left:3px">${fmtScore(general)}</span>`;
+  return `<span class="sc help" style="color:${ramp(buck)}" title="${BUCK_HELP}">${fmtScore(buck)}</span>
+          <span class="sc sm help" title="${DEER_HELP}" style="margin-left:4px">${fmtScore(general)}</span>`;
 }
 
 function conditionsText(w, date, slot) {
@@ -420,8 +421,8 @@ function standBlock(s) {
       <span class="nm">${esc(s.label)}</span>
       <span class="badge ${s.verdict}">${s.verdict}</span>
       ${s.scentSource === 'manual' ? '<span class="badge manual">your tags</span>' : ''}
-      <span class="${scoreClass(s.buckScore)}">${fmtScore(s.buckScore)}</span>
-      <span class="${scoreClass(s.generalScore)}">${fmtScore(s.generalScore)}</span>
+      <span class="sc" style="color:${ramp(s.buckScore)}">${fmtScore(s.buckScore)}</span>
+      <span class="sc sm">${fmtScore(s.generalScore)}</span>
       <span class="right muted mono" style="font-size:11px">
         ${s.daysSinceHunted == null ? 'unhunted' : `${s.daysSinceHunted}d rest`}${s.foodYards != null ? ` · food ${s.foodYards}yd` : ''}${s.waterYards != null ? ` · water ${s.waterYards}yd` : ''}
       </span>
@@ -464,10 +465,8 @@ async function renderNear(days = 7) {
           <div>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
               <b style="font-size:15px">${s.slot}</b>
-              <span class="${scoreClass(s.buckScore)} help" style="font-size:15px;padding:3px 9px" title="${BUCK_HELP}">${fmtScore(s.buckScore)}</span>
-              <span class="muted" style="font-size:11px">buck</span>
-              <span class="${scoreClass(s.generalScore)} help" style="font-size:15px;padding:3px 9px" title="${DEER_HELP}">${fmtScore(s.generalScore)}</span>
-              <span class="muted" style="font-size:11px">deer</span>
+              ${stack(s.buckScore, 'Buck', { mini: true, color: ramp(s.buckScore) })}
+              ${stack(s.generalScore, 'Deer', { mini: true, cls: 'sec' })}
               ${s.available ? '<span class="badge manual right">free</span>' : ''}
             </div>
             <div class="muted mono" style="font-size:11.5px;margin-bottom:8px">
@@ -482,6 +481,8 @@ async function renderNear(days = 7) {
       </div>
     </div>`;
   }).join('');
+
+  await balanceWhenReady($('#nearBody'));
 }
 
 // --- sticky layout ----------------------------------------------------------
@@ -521,6 +522,7 @@ async function showTab(name) {
   $$('main > section').forEach((s) => s.classList.toggle('hide', s.id !== `tab-${name}`));
   location.hash = name;
 
+  if (name === 'today') { const m = await import('/today.js'); await m.mount(); }
   if (name === 'near') await renderNear(+($('#nearRange .active')?.dataset.d ?? 7));
   if (name === 'stands') { const m = await import('/stands.js'); await m.mount(); }
   if (name === 'map') { mapModule ??= await import('/map.js'); await mapModule.mount(); }
@@ -582,4 +584,4 @@ $('#clearAvail').onclick = async (e) => {
 window.__dh = { get state() { return state; }, get calendar() { return calendar; }, api, boot, renderCalendar };
 
 await boot();
-await showTab(location.hash.slice(1) || 'calendar');
+await showTab(location.hash.slice(1) || 'today');

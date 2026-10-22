@@ -445,6 +445,17 @@ npm run alert          # check thresholds now
 Served from the Mac mini, reachable over Tailscale from a phone. No auth: single hunter,
 private tailnet.
 
+Warm-earth palette over a condensed type scale: deliberately not a trading terminal, and
+deliberately not an outdoors-brand look either — no camo, no antler icons, no woodgrain.
+Scores run a **continuous** rust-to-moss ramp, so 6.9 and 7.1 read as neighbours rather
+than different tiers. Each score's label is width-matched to the number above it at
+runtime, because "5.5" and "10.0" are different widths and a fixed font size can only
+balance one of them.
+
+- **Today** — the front door, and the answer to "do I go, and where". Both scores over a
+  dawn or dusk sky driven by the real forecast, every metric with its own graphic and a
+  diverging bar showing whether it is helping or hurting, a **primary and a backup stand**
+  with a line saying why the backup might beat it, and the week ahead as tiles.
 - **Season** — every day of your seasons, AM and PM, both scores, banded by rut phase and
   striped with whichever seasons are open. Mark which days you're actually free; a 9.9 on a
   Tuesday you can't take off is trivia. Filter to available days or the top 15. The weekend

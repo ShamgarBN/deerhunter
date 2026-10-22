@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <title>DeerHunter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="/styles.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🦌</text></svg>">
@@ -20,7 +23,8 @@
 </header>
 
 <nav class="tabs" id="tabs">
-  <button data-tab="calendar" class="active">Season</button>
+  <button data-tab="today" class="active">Today</button>
+  <button data-tab="calendar">Season</button>
   <button data-tab="near">Near-term</button>
   <button data-tab="stands">Stands</button>
   <button data-tab="map">Map</button>
@@ -29,8 +33,14 @@
 </nav>
 
 <main>
+  <!-- ---------------- TODAY ---------------- -->
+  <section id="tab-today">
+    <div class="toolbar" id="todayToolbar"></div>
+    <div id="todayBody"></div>
+  </section>
+
   <!-- ---------------- SEASON CALENDAR ---------------- -->
-  <section id="tab-calendar">
+  <section id="tab-calendar" class="hide">
     <div class="toolbar">
       <div class="seg" id="calFilter">
         <button data-f="all" class="active">All days</button>
