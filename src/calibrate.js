@@ -17,6 +17,7 @@
 import { scoreSlot } from './scoring.js';
 import { climatologyFor, normalFor } from './nws.js';
 import { dateRange, addDays } from './timeutil.js';
+import { distanceToFeatureYards } from './geo.js';
 
 // Weather archetypes, weighted to roughly mirror a Piedmont late-fall season: mostly
 // ordinary days, a minority of fronts, rain and warm spells.
@@ -130,6 +131,51 @@ function fit(sorted, targetLow, targetHigh, pLow, pHigh, maxGain = 2.0) {
   };
 }
 
+/**
+ * Fit the food and water proximity curves to THIS property's distances.
+ *
+ * The thresholds shipped as absolute guesses - full credit inside 60 yards of food, 80 of
+ * water - and absolute guesses cannot discriminate on a property whose numbers happen to
+ * sit on one side of them. Measured here, two stands 13 and 38 yards from water both
+ * scored a flat +1 and the factor told you nothing about which to sit.
+ *
+ * So the curve is anchored on the property's own spread: the nearest stand earns full
+ * credit, the median sits at neutral, and the far end runs past the worst stand so it
+ * reads clearly negative without pinning. Guardrails stop a cluster of near-identical
+ * distances from being amplified into false distinctions.
+ */
+export function fitProximity(map) {
+  const stands = map.points.filter((p) => p.type === 'stand');
+  const foods = map.points.filter((p) => p.type === 'food');
+  const waters = map.points.filter((p) => p.type === 'water' && p.active !== false);
+  if (stands.length < 2) return null;
+
+  const nearestTo = (feats) => stands
+    .map((s) => {
+      const ds = feats.map((f) => distanceToFeatureYards(s, f)).filter((v) => v != null);
+      return ds.length ? Math.min(...ds) : null;
+    })
+    .filter((v) => v != null)
+    .sort((a, b) => a - b);
+
+  const curve = (ds, fallback) => {
+    if (ds.length < 2) return fallback;
+    const near = Math.max(15, Math.round(ds[0]));
+    const median = ds[Math.floor(ds.length / 2)];
+    const mid = Math.max(near + 40, Math.round(median));
+    const far = Math.max(mid + 120, Math.round(ds.at(-1) * 1.6));
+    // A property whose stands are all within a stone's throw of each other has nothing to
+    // separate; stretching that would manufacture a distinction out of noise.
+    if (ds.at(-1) - ds[0] < 40) return fallback;
+    return { near, mid, far, fittedFrom: ds.map((d) => Math.round(d)) };
+  };
+
+  return {
+    food: curve(nearestTo(foods), { near: 60, mid: 250, far: 700 }),
+    water: curve(nearestTo(waters), { near: 80, mid: 350, far: 900 }),
+  };
+}
+
 export function calibrate({ cfg, scoring, map, lastHuntedByStand = null, targetLow = 2.0, targetHigh = 9.0, pLow = 0.05, pHigh = 0.95 }) {
   const raw = collectRawScores({ cfg, scoring, map, lastHuntedByStand });
   if (!raw.buck.length) {
@@ -141,6 +187,7 @@ export function calibrate({ cfg, scoring, map, lastHuntedByStand = null, targetL
   return {
     buck: { offset: buck.offset, gain: buck.gain },
     general: { offset: general.offset, gain: general.gain },
+    proximity: fitProximity(map),
     diagnostics: {
       buck: { ...buck, n: raw.buck.length, min: +raw.buck[0].toFixed(2), max: +raw.buck.at(-1).toFixed(2) },
       general: { ...general, n: raw.general.length, min: +raw.general[0].toFixed(2), max: +raw.general.at(-1).toFixed(2) },

@@ -69,10 +69,12 @@ export async function sendAlerts(cfg, slots) {
   }));
 
   const n = slots.length;
+  const bt = cfg.alerts.buckThreshold ?? cfg.alerts.scoreThreshold;
+  const gt = cfg.alerts.generalThreshold ?? cfg.alerts.scoreThreshold;
   await post(cfg, {
     content: n === 1
-      ? 'One slot crossed your threshold.'
-      : `${n} slots crossed your threshold in the next ${cfg.alerts.windowDaysUsed ?? cfg.forecast.forecastConfidenceDays} days.`,
+      ? `One slot crossed your threshold (buck ${bt} / deer ${gt}).`
+      : `${n} slots crossed your thresholds in the next ${cfg.alerts.windowDaysUsed ?? cfg.forecast.forecastConfidenceDays} days (buck ${bt} / deer ${gt}).`,
     embeds,
   });
 
@@ -103,7 +105,9 @@ export async function testWebhook(cfg) {
     content: null,
     embeds: [{
       title: 'DeerHunter connected',
-      description: `Watching **${cfg.property.name}** (${cfg.property.county}).\nSeason ${cfg.season.start} to ${cfg.season.end}.\nAlerting above **${cfg.alerts.scoreThreshold}** inside the ${cfg.forecast.forecastConfidenceDays}-day forecast window.`,
+      description: `Watching **${cfg.property.name}** (${cfg.property.county}).\nSeason ${cfg.season.start} to ${cfg.season.end}.`
+        + `\nAlerting above **${cfg.alerts.buckThreshold ?? cfg.alerts.scoreThreshold} buck** / **${cfg.alerts.generalThreshold ?? cfg.alerts.scoreThreshold} deer**`
+        + ` inside the ${cfg.forecast.forecastConfidenceDays}-day forecast window.`,
       color: COLORS.test,
     }],
   });

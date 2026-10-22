@@ -777,6 +777,7 @@ app.post('/api/calibrate', wrap((req, res) => {
   const cal = calibrate({ cfg, scoring, map });
   if (req.body?.apply !== false) {
     scoring.calibration = { buck: cal.buck, general: cal.general };
+    if (cal.proximity) scoring.proximityCurves = cal.proximity;
     scoring._calibrationDiagnostics = cal.diagnostics;
     saveScoring(scoring);
   }
@@ -801,9 +802,61 @@ app.post('/api/alerts/test', wrap(async (req, res) => res.json(await testWebhook
 
 app.post('/api/alerts/config', wrap((req, res) => {
   const cfg = loadConfig();
-  cfg.alerts = { ...cfg.alerts, ...req.body };
+  const next = { ...cfg.alerts, ...req.body };
+  for (const k of ['buckThreshold', 'generalThreshold']) {
+    if (next[k] != null) next[k] = Math.max(0, Math.min(10, +next[k]));
+  }
+  delete next.scoreThreshold; // superseded by the per-score pair
+  cfg.alerts = next;
   saveConfig(cfg);
-  res.json(cfg.alerts);
+  res.json(loadConfig().alerts);
+}));
+
+/**
+ * What each threshold would actually catch, against the scores already stored.
+ *
+ * A threshold is meaningless without knowing how often it fires. This reports the hit
+ * rate for the current settings and the value at each percentile, so a cut-off can be
+ * chosen from the real distribution rather than guessed and regretted in November.
+ */
+app.get('/api/alerts/preview', wrap((req, res) => {
+  const cfg = loadConfig();
+  const db = getDb();
+  const rows = db.prepare('SELECT buck_score b, general_score g, confidence FROM scores').all();
+  // Two scopes, because they answer different questions and conflating them misleads.
+  //
+  // The whole season is what a threshold should be CHOSEN against: it is the distribution
+  // you will actually live with. The forecast window is what the alert would fire on
+  // RIGHT NOW, which in late October is a fortnight of pre-rut and says almost nothing
+  // about how often you will be pinged in the second week of November.
+  const forecastOnly = rows.filter((r) => r.confidence !== 'climatology');
+
+  const pct = (arr, p) => {
+    if (!arr.length) return null;
+    const s = [...arr].sort((x, y) => x - y);
+    return +s[Math.min(s.length - 1, Math.floor(s.length * p))].toFixed(2);
+  };
+  const stat = (vals, threshold) => ({
+    n: vals.length,
+    over: vals.filter((v) => v >= threshold).length,
+    share: vals.length ? +(vals.filter((v) => v >= threshold).length / vals.length).toFixed(3) : 0,
+    percentiles: Object.fromEntries([0.75, 0.85, 0.9, 0.95].map((p) => [`p${Math.round(p * 100)}`, pct(vals, p)])),
+  });
+
+  const bt = cfg.alerts.buckThreshold ?? cfg.alerts.scoreThreshold ?? 8.5;
+  const gt = cfg.alerts.generalThreshold ?? cfg.alerts.scoreThreshold ?? 7.5;
+  res.json({
+    alerts: cfg.alerts,
+    season: {
+      buck: { threshold: bt, ...stat(rows.map((r) => r.b), bt) },
+      general: { threshold: gt, ...stat(rows.map((r) => r.g), gt) },
+    },
+    forecastWindow: {
+      buck: { threshold: bt, ...stat(forecastOnly.map((r) => r.b), bt) },
+      general: { threshold: gt, ...stat(forecastOnly.map((r) => r.g), gt) },
+    },
+    note: 'Choose a threshold against the whole season: that is the distribution you live with. The forecast-window figure is only what would fire today, and early in the season that is a fortnight of pre-rut.',
+  });
 }));
 
 // --- scheduler --------------------------------------------------------------

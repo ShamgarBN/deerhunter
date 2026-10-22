@@ -219,15 +219,20 @@ export function scoreSlot({ date, slot, wx, cfg, scoring, map, lastHuntedByStand
     moonIllumination: moonEffect(astro.moon.illumination),
   };
 
-  // Proximity midpoints are set so a TYPICAL stand on a 100-acre property lands near
-  // zero, not near +1. A stand 250 yards off food is ordinary and should read neutral;
-  // only one practically on the food edge earns the full bonus. Without this the factor
-  // becomes a constant offset for every well-placed stand instead of a discriminator.
+  // Proximity curves are fitted to the property's own distances by `npm run score --
+  // calibrate` (see fitProximity), falling back to the shipped defaults when there are too
+  // few stands or they sit too close together to separate.
+  //
+  // Absolute thresholds alone cannot discriminate: on a property where two stands sit 13
+  // and 38 yards from water, a curve giving full credit inside 80 yards scores both a
+  // flat +1 and tells you nothing about which to sit.
+  const fc = scoring.proximityCurves?.food ?? { near: 60, mid: 250, far: 700 };
+  const wc = scoring.proximityCurves?.water ?? { near: 80, mid: 350, far: 900 };
   const buildFactors = (foodDist, waterDist, daysSince) => ({
     ...shared,
     huntingPressure: pressureEffect(daysSince),
-    foodProximity: proximityEffect(foodDist, 60, 250, 700),
-    waterProximity: proximityEffect(waterDist, 80, 350, 900),
+    foodProximity: proximityEffect(foodDist, fc.near, fc.mid, fc.far),
+    waterProximity: proximityEffect(waterDist, wc.near, wc.mid, wc.far),
   });
 
   const assemble = (factors, target) => {

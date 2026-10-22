@@ -403,47 +403,47 @@
   },
   "calibration": {
     "buck": {
-      "offset": -2.1786,
-      "gain": 1.3592
+      "offset": -1.9557,
+      "gain": 1.3566
     },
     "general": {
-      "offset": -6.3129,
-      "gain": 1.9284
+      "offset": -6.3114,
+      "gain": 1.9444
     }
   },
   "_calibrationNote": "Affine map from the raw weighted sum onto the visible 0-10 scale: score = clamp((raw + offset) * gain, 0, 10). Identity until you run 'npm run score -- --calibrate', which simulates the whole season across a realistic spread of weather and fits offset/gain so the 5th percentile lands near 2 and the 95th near 9. Re-run it whenever the map changes materially (new stands, a pond going dry) or the drought severity changes, because both shift the raw range. Calibration changes what the numbers LOOK like, never how days rank against each other.",
   "_calibrationDiagnostics": {
     "buck": {
-      "offset": -2.1786,
-      "gain": 1.3592,
+      "offset": -1.9557,
+      "gain": 1.3566,
       "degenerate": false,
       "capped": false,
-      "wantedGain": 1.3592,
+      "wantedGain": 1.3566,
       "warning": null,
-      "p05": 3.65,
-      "p95": 8.8,
-      "rawSpread": 5.15,
-      "n": 14630,
+      "p05": 3.43,
+      "p95": 8.59,
+      "rawSpread": 5.16,
+      "n": 17670,
       "min": 2.22,
       "max": 11.15
     },
     "general": {
-      "offset": -6.3129,
-      "gain": 1.9284,
+      "offset": -6.3114,
+      "gain": 1.9444,
       "degenerate": false,
       "capped": false,
-      "wantedGain": 1.9284,
+      "wantedGain": 1.9444,
       "warning": null,
-      "p05": 7.35,
-      "p95": 10.98,
-      "rawSpread": 3.63,
-      "n": 14630,
-      "min": 5.92,
+      "p05": 7.34,
+      "p95": 10.94,
+      "rawSpread": 3.6,
+      "n": 17670,
+      "min": 5.91,
       "max": 11.79
     },
     "targetLow": 2,
     "targetHigh": 9,
-    "calibratedAt": "2026-10-03T19:29:36.547Z"
+    "calibratedAt": "2026-10-22T17:01:58.577Z"
   },
   "calibrationLimits": {
     "maxGain": 2,
@@ -460,5 +460,29 @@
     "calmFloorMph": 3,
     "reliableMph": 8,
     "minConfidenceForVerdict": 0.3
+  },
+  "proximityCurves": {
+    "food": {
+      "near": 15,
+      "mid": 85,
+      "far": 325,
+      "fittedFrom": [
+        14,
+        24,
+        85,
+        203
+      ]
+    },
+    "water": {
+      "near": 15,
+      "mid": 133,
+      "far": 279,
+      "fittedFrom": [
+        13,
+        38,
+        133,
+        175
+      ]
+    }
   }
 }

@@ -23,6 +23,7 @@ export async function mount() {
   const w = await api('/api/weights');
   const sn = await api('/api/seasons');
   const dr = await api('/api/drought');
+  const al = await api('/api/alerts/preview');
   const st = window.__dh.state;
 
   const factorRows = Object.entries(w.factors).map(([k, f]) => `
@@ -141,6 +142,56 @@ export async function mount() {
       </div>
 
     <div class="card">
+      <h3>Alerts
+        <span class="badge ${al.alerts.enabled ? 'safe' : 'unknown'}" style="margin-left:7px">${al.alerts.enabled ? 'on' : 'off'}</span>
+      </h3>
+      <p class="muted" style="font-size:12.5px;margin-top:0">
+        Separate thresholds per score, because the two distributions are different shapes &mdash; a single cut-off
+        that is sensible for one is noise or silence for the other. Set each from the percentages below rather than
+        guessing: aim for roughly the <b>top 10&ndash;15%</b>. An alert that fires most days is one you learn to
+        swipe away, which is worse than no alert.
+      </p>
+      <div class="two" style="margin-top:12px">
+        ${['buck', 'general'].map((k) => {
+          const S = al.season[k]; const F = al.forecastWindow[k];
+          const label = k === 'buck' ? 'Buck score' : 'Deer activity';
+          return `<div>
+            <label>${label} threshold</label>
+            <div style="display:flex;gap:9px;align-items:center">
+              <input type="range" id="th-${k}" min="0" max="10" step="0.1" value="${S.threshold}" style="flex:1">
+              <b class="mono" id="thv-${k}" style="font-family:var(--cond);font-size:26px;min-width:46px;text-align:right">${S.threshold}</b>
+            </div>
+            <div class="kv"><span>Over the whole season</span><span id="ths-${k}">${S.over} of ${S.n} slots (${Math.round(S.share * 100)}%)</span></div>
+            <div class="kv"><span>In the forecast window now</span><span>${F.over} of ${F.n} (${Math.round(F.share * 100)}%)</span></div>
+            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+              ${[85, 90, 95].map((p) => `<button class="btn sm" data-set="${k}" data-v="${S.percentiles[`p${p}`]}">top ${100 - p}% &middot; ${S.percentiles[`p${p}`]}</button>`).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="note">${esc(al.note)}</div>
+
+      <h4>What fires</h4>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="al-enabled" ${al.alerts.enabled ? 'checked' : ''}> Alerts enabled</label>
+        <label class="check"><input type="checkbox" id="al-buck" ${al.alerts.alertOnBuckScore ? 'checked' : ''}> On buck score</label>
+        <label class="check"><input type="checkbox" id="al-gen" ${al.alerts.alertOnGeneralScore ? 'checked' : ''}> On deer activity</label>
+      </div>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="al-window" ${al.alerts.onlyWithinForecastWindow ? 'checked' : ''}> Only forecast-backed days</label>
+        <label class="check"><input type="checkbox" id="al-avail" ${al.alerts.onlyAvailableDays ? 'checked' : ''}> Only days I'm free</label>
+        <div style="flex:0 0 150px"><label>Cooldown (hours)</label>
+          <input type="number" id="al-cool" min="1" max="168" value="${al.alerts.cooldownHours ?? 20}"></div>
+      </div>
+      <div style="margin-top:11px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn primary" id="saveAlerts">Save</button>
+        <button class="btn" id="checkAlerts">Check now</button>
+        <button class="btn sm right" id="testDiscord">Test Discord</button>
+        <span class="muted" style="font-size:12px" id="alertMsg"></span>
+      </div>
+    </div>
+
+    <div class="card">
       <h3>Scale calibration</h3>
       <p class="muted" style="font-size:12.5px;margin-top:0">
         Maps the raw weighted sum onto the visible 0&ndash;10 scale by simulating the whole season
@@ -189,6 +240,69 @@ export async function mount() {
       <h3>Change history</h3>
       ${history}
     </div>`;
+
+  // --- alerts ---
+  const thVals = { buck: al.season.buck.threshold, general: al.season.general.threshold };
+  const refreshHit = (k) => {
+    // Recomputed client-side from the percentile table so the hit rate moves as the
+    // slider does, instead of only after a save and a round trip.
+    const S = al.season[k];
+    const v = thVals[k];
+    const approx = S.n ? Math.round((S.percentiles.p95 <= v ? 5 : S.percentiles.p90 <= v ? 10 : S.percentiles.p85 <= v ? 15 : S.percentiles.p75 <= v ? 25 : 40)) : 0;
+    $(`#ths-${k}`).textContent = `about the top ${approx}% of the season`;
+  };
+  ['buck', 'general'].forEach((k) => {
+    const sl = $(`#th-${k}`);
+    sl.oninput = () => { thVals[k] = +sl.value; $(`#thv-${k}`).textContent = sl.value; refreshHit(k); };
+  });
+  $$('[data-set]').forEach((b) => {
+    b.onclick = () => {
+      const k = b.dataset.set;
+      thVals[k] = +b.dataset.v;
+      $(`#th-${k}`).value = b.dataset.v;
+      $(`#thv-${k}`).textContent = b.dataset.v;
+      refreshHit(k);
+    };
+  });
+
+  $('#saveAlerts').onclick = async (e) => {
+    e.target.disabled = true;
+    try {
+      await api('/api/alerts/config', { method: 'POST', body: JSON.stringify({
+        enabled: $('#al-enabled').checked,
+        buckThreshold: thVals.buck,
+        generalThreshold: thVals.general,
+        alertOnBuckScore: $('#al-buck').checked,
+        alertOnGeneralScore: $('#al-gen').checked,
+        onlyWithinForecastWindow: $('#al-window').checked,
+        onlyAvailableDays: $('#al-avail').checked,
+        cooldownHours: +$('#al-cool').value || 20,
+      }) });
+      await mount();
+    } catch (err) { $('#alertMsg').textContent = err.message; }
+    finally { e.target.disabled = false; }
+  };
+
+  $('#checkAlerts').onclick = async (e) => {
+    e.target.disabled = true;
+    $('#alertMsg').textContent = 'Checking...';
+    try {
+      const r = await api('/api/alerts/check', { method: 'POST', body: '{}' });
+      $('#alertMsg').innerHTML = esc((r.log ?? []).join(' ')) || `${r.sent ?? 0} sent`;
+    } catch (err) { $('#alertMsg').textContent = err.message; }
+    finally { e.target.disabled = false; }
+  };
+
+  $('#testDiscord').onclick = async (e) => {
+    e.target.disabled = true;
+    try {
+      const r = await api('/api/alerts/test', { method: 'POST', body: '{}' });
+      $('#alertMsg').innerHTML = r.skipped
+        ? `<span style="color:var(--amber)">${esc(r.skipped)}</span>`
+        : '<span style="color:var(--moss)">Posted to Discord.</span>';
+    } catch (err) { $('#alertMsg').innerHTML = `<span style="color:var(--rust)">${esc(err.message)}</span>`; }
+    finally { e.target.disabled = false; }
+  };
 
   // --- seasons ---
   const readSeasons = () => $$('#seasonList .seasonrow').map((row) => ({

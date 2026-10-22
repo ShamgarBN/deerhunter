@@ -378,7 +378,12 @@ export async function checkAlerts({ log = console.log, force = false } = {}) {
      ORDER BY s.date, s.slot
   `).all(today, end, cfg.season.start, cfg.season.end);
 
-  const threshold = cfg.alerts.scoreThreshold;
+  // Separate thresholds per score. The two distributions are different shapes, and a
+  // single cut-off that is sensible for one is noise or silence for the other.
+  // `scoreThreshold` is the pre-split name and is honoured so an older config keeps working.
+  const legacy = cfg.alerts.scoreThreshold;
+  const buckThreshold = cfg.alerts.buckThreshold ?? legacy ?? 8.5;
+  const generalThreshold = cfg.alerts.generalThreshold ?? legacy ?? 7.5;
   const candidates = [];
   for (const r of rows) {
     if (cfg.alerts.onlyWithinForecastWindow && r.confidence === 'climatology') continue;
@@ -395,12 +400,15 @@ export async function checkAlerts({ log = console.log, force = false } = {}) {
       weather: { tempF: r.temp_f, tempNormalF: r.temp_normal_f, windMph: r.wind_mph, precipProb: r.precip_prob },
       recommendedStands: stands,
     };
-    if (cfg.alerts.alertOnBuckScore && r.buck_score >= threshold) candidates.push({ ...base, kind: 'buck' });
-    if (cfg.alerts.alertOnGeneralScore && r.general_score >= threshold) candidates.push({ ...base, kind: 'general' });
+    if (cfg.alerts.alertOnBuckScore && r.buck_score >= buckThreshold) candidates.push({ ...base, kind: 'buck', threshold: buckThreshold });
+    if (cfg.alerts.alertOnGeneralScore && r.general_score >= generalThreshold) candidates.push({ ...base, kind: 'general', threshold: generalThreshold });
   }
 
   const toSend = force ? candidates : filterAlreadySent(candidates, cfg.alerts.cooldownHours);
-  if (!toSend.length) { log(`Nothing above ${threshold} in the next ${horizon} days that has not already been sent.`); return { sent: 0, considered: candidates.length }; }
+  if (!toSend.length) {
+    log(`Nothing above ${buckThreshold} buck / ${generalThreshold} deer in the next ${horizon} days that has not already been sent.`);
+    return { sent: 0, considered: candidates.length };
+  }
 
   cfg.alerts.windowDaysUsed = horizon;
   const res = await sendAlerts(cfg, toSend);

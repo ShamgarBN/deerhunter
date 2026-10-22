@@ -60,6 +60,15 @@ async function main() {
         }
         if (has('--dry-run')) { console.log('\nDry run, nothing written.'); break; }
         scoring.calibration = { buck: cal.buck, general: cal.general };
+        if (cal.proximity) {
+          scoring.proximityCurves = cal.proximity;
+          console.log(`\nProximity curves fitted to your stands:`);
+          for (const k of ['food', 'water']) {
+            const c = cal.proximity[k];
+            console.log(`  ${k.padEnd(6)} full credit at ${c.near}yd, neutral at ${c.mid}yd, worst at ${c.far}yd`
+              + `${c.fittedFrom ? `  (from ${c.fittedFrom.join(', ')} yd)` : '  (defaults: too few stands or too little spread)'}`);
+          }
+        }
         scoring._calibrationDiagnostics = cal.diagnostics;
         saveScoring(scoring);
         const dist = distribution({ cfg, scoring, map });

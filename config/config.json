@@ -38,15 +38,17 @@
     "note": "Populated on first refresh."
   },
   "alerts": {
+    "_comment": "Separate thresholds per score, because the two distributions are not the same shape. Measured on one real property, a single 7.5 cut-off caught 17% of buck slots and 40% of general slots; at 8.0 it caught 15% of buck and 1% of general. One number cannot serve both. Use the Model tab to set each from a percentile of your own stored scores rather than guessing.",
     "enabled": true,
-    "scoreThreshold": 7.5,
-    "_thresholdNote": "Deliberately uncalibrated. Run a season, look at the real score distribution on the Calendar tab, then set this to roughly the top 10-15% of slots. Too low and the alerts become noise.",
+    "buckThreshold": 8.5,
+    "generalThreshold": 7.5,
+    "_thresholdNote": "Aim for roughly the top 10-15% of slots. An alert that fires most days is one you learn to swipe away, which is worse than no alert. The Model tab shows what percentage each value currently catches.",
     "onlyWithinForecastWindow": true,
     "_windowNote": "true = only alert on days with real NWS data behind them. Flip to false to also hear about climatology-only outlook days, which are much softer.",
     "alertOnBuckScore": true,
     "alertOnGeneralScore": true,
     "onlyAvailableDays": false,
-    "_availableNote": "true = only alert on days marked available on the Calendar tab. Useful once your PTO is planned; noisy before that.",
+    "_availableNote": "true = only alert on days marked available on the Season tab. Useful once your PTO is planned; noisy before that.",
     "cooldownHours": 20
   },
   "discord": {

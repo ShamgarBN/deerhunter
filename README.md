@@ -352,6 +352,20 @@ a number describing a stand that doesn't exist.
 
 ---
 
+### Proximity curves fit your property
+
+The food and water curves are fitted to your own stand distances by
+`npm run score -- --calibrate`, not left as absolute guesses. Absolute thresholds can't
+discriminate when a property's numbers happen to sit on one side of them: shipped defaults
+gave full credit inside 80 yards of water, so two stands 13 and 38 yards out both scored a
+flat +1 and the factor said nothing about which to sit.
+
+Fitted, the nearest stand earns full credit, the median sits at neutral, and the far end
+runs past the worst stand. On the property this was built for that took the spread between
+the best and worst stand from near zero to **two full buck points**. Guardrails leave the
+defaults alone when there are fewer than two stands, or when they sit so close together
+that stretching the curve would manufacture a distinction out of noise.
+
 ## Learning from your own season
 
 Every factor keeps a `prior_weight` (the research-grounded default, which never changes)
@@ -425,13 +439,19 @@ Alerts stay inside the forecast window by default.
 
 Discord webhook, fired by the scheduled job when an upcoming slot crosses a threshold.
 
-The threshold ships at **7.5 and is deliberately uncalibrated.** Run a season, look at the
-real distribution on the Season tab, then set it to roughly the top 10-15% of slots. An
-alert that fires every day is one you learn to swipe away, which is worse than no alert.
+**Separate thresholds per score**, because the two distributions are different shapes. On
+a real property a single 7.5 cut-off caught 17% of buck slots and 40% of general slots; at
+8.0 it caught 15% of buck and 1% of general. One number cannot serve both.
 
-Everything is configurable in `config/config.json` → `alerts`: threshold, whether to alert
-on buck score, general score or both, whether to restrict to days you've marked available,
-and a cooldown so a high Saturday doesn't get announced every morning for a week.
+The Model tab has the full panel: a slider per score showing what percentage of the season
+it would catch, preset buttons for the top 5 / 10 / 15%, which scores fire, whether to
+restrict to forecast-backed days or days you're free, and the cooldown. Aim for roughly
+the **top 10-15%** — an alert that fires most days is one you learn to swipe away.
+
+It reports two figures, and the difference matters. **Over the whole season** is what you
+should choose against: that's the distribution you live with. **In the forecast window
+now** is only what would fire today, and in late October that's a fortnight of pre-rut
+that says nothing about the second week of November.
 
 ```bash
 npm run test-discord   # connectivity check
