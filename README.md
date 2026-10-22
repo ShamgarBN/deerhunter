@@ -295,14 +295,33 @@ plat screenshot on top for boundaries the aerial doesn't show.
 
 ## Drought
 
-`drought.severity` in `config/config.json` runs 0 to 1 and scales the food and water
-weights by `1 + 0.8 × severity`. It ships at **0**, the right setting for most places most
-years: where rainfall is normal, water is not a limiting resource and the model should say
-so.
+Severity runs 0 to 1 and scales the food and water weights by `1 + 0.8 × severity`.
 
-Raise it when your local drought monitor says to. The slider is on the Model tab, and the
-effect is real — in a severe-drought year it makes the map a materially stronger driver of
-the score.
+**It updates itself.** Every refresh pulls the current US Drought Monitor map for your
+county — free, keyless, keyed by the FIPS code `setup` resolves — and writes the new
+severity, logging every change so it never moves silently.
+
+Severity is **area-weighted** across the county rather than taking the worst category
+present, so a corner in D3 doesn't read as uniformly extreme. USDM percentages are
+cumulative (`d0: 100` means 100% is at D0 *or worse*, not that the county is uniformly
+D0), which is an easy thing to get backwards; the conversion differences them into
+exclusive shares first.
+
+| USDM | Severity |
+|---|---|
+| none | 0 |
+| D0 abnormally dry | 0.30 |
+| D1 moderate | 0.50 |
+| D2 severe | 0.75 |
+| D3 extreme | 0.90 |
+| D4 exceptional | 1.00 |
+
+Pin your own number with the slider on the Model tab and it switches to **manual**: USDM
+still gets checked and logged each refresh, it just stops overwriting you. That's the
+right call if you know your own water better than a county-level map does.
+
+In a normal-rainfall year this lands near zero on its own, which is correct — water isn't
+a limiting resource in most places most years.
 
 ---
 

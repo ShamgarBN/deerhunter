@@ -23,6 +23,7 @@ import { sitWindow, slotTimes } from './astro.js';
 import { scoreSlot } from './scoring.js';
 import { standVerdict, thermalNotes } from './wind.js';
 import { loadSeasons, strictnessOn, coveredDates } from './seasons.js';
+import { updateDrought } from './drought.js';
 import { calibrate } from './calibrate.js';
 import { sendAlerts, filterAlreadySent } from './discord.js';
 import { dateRange, todayLocal, addDays, nowIso, daysBetween } from './timeutil.js';
@@ -67,6 +68,17 @@ export async function refresh({ log = console.log } = {}) {
     cfg.nws.gridId = g.gridId; cfg.nws.gridX = g.gridX; cfg.nws.gridY = g.gridY;
     saveConfig(cfg);
     log(`Resolved NWS grid: ${g.gridId}/${g.gridX},${g.gridY} (${g.city}, ${g.state})`);
+  }
+
+  // 1b. Drought, from the US Drought Monitor.
+  //
+  // Runs before scoring because it scales the food and water weights. USDM publishes
+  // weekly, so most refreshes find nothing changed; the cost is one request. Never fatal:
+  // an outage leaves the previous severity in place and the rest of the refresh proceeds.
+  try {
+    await updateDrought({ log });
+  } catch (err) {
+    log(`Drought update failed (${err.message}); severity left as-is.`);
   }
 
   // 2. Forecast.

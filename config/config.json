@@ -8,7 +8,8 @@
     "county": null,
     "nearestTown": null,
     "timezone": "America/New_York",
-    "acresApprox": 100
+    "acresApprox": 100,
+    "countyFips": null
   },
   "nws": {
     "_comment": "US only. Resolved once by setup from /points/{lat},{lon} and cached. Outside the US leave gridId null: wind, pressure and temperature still come from Open-Meteo, and only the NWS-sourced precipitation and sky cover are lost.",
@@ -28,11 +29,13 @@
     "nearTermDays": 14
   },
   "drought": {
-    "_comment": "Multiplies the food and water proximity weights. 0 in a normal-rainfall year, which is the correct setting for most places most years.",
+    "_comment": "Scales the food and water proximity weights by 1 + droughtBoost * severity. Updated automatically from the US Drought Monitor on every refresh when mode is 'auto', using the county FIPS that setup resolves. Severity is area-weighted across the county rather than taking the worst category present, so a corner in D3 does not read as uniformly extreme. Set mode to 'manual' to pin your own number: USDM is still fetched and logged each refresh, just not applied, which is the right choice if you know your own water better than a county-level map does.",
+    "mode": "auto",
     "severity": 0,
-    "_severityScale": "0 = normal rainfall, 0.4 = abnormally dry (D0-D1), 0.75 = severe (D2-D3), 1.0 = extreme (D4)",
+    "_severityScale": "0 = no drought, 0.30 = D0 abnormally dry, 0.50 = D1 moderate, 0.75 = D2 severe, 0.90 = D3 extreme, 1.0 = D4 exceptional",
     "asOf": null,
-    "note": "Check your local drought monitor and set this."
+    "source": null,
+    "note": "Populated on first refresh."
   },
   "alerts": {
     "enabled": true,

@@ -173,6 +173,9 @@ export async function runSetup({ lat, lon, name = 'My property', seasonStart, se
   const county = await lookupCounty(lat, lon);
   if (county) {
     cfg.property.county = [county.name, county.state].filter(Boolean).join(', ') + (county.fips ? ` (FIPS ${county.fips})` : '');
+    // Stored separately because the drought lookup is keyed by it, and parsing it back
+    // out of a display string is the kind of thing that breaks when someone edits the label.
+    if (county.fips) cfg.property.countyFips = county.fips;
     log(`  County: ${cfg.property.county}`);
     log('  Check this against your state\'s season dates and zone map. Zones are set by county nearly everywhere.');
   } else {

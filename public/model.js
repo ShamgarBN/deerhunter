@@ -22,6 +22,7 @@ function weightBar(cur, prior) {
 export async function mount() {
   const w = await api('/api/weights');
   const sn = await api('/api/seasons');
+  const dr = await api('/api/drought');
   const st = window.__dh.state;
 
   const factorRows = Object.entries(w.factors).map(([k, f]) => `
@@ -114,19 +115,30 @@ export async function mount() {
       </div>
 
       <div class="card">
-        <h3>Drought severity</h3>
+        <h3>Drought severity
+          <span class="badge ${dr.drought.mode === 'auto' ? 'safe' : 'manual'}" style="margin-left:7px">${dr.drought.mode === 'auto' ? 'auto' : 'manual'}</span>
+        </h3>
         <p class="muted" style="font-size:12.5px;margin-top:0">
-          Scales the food and water weights. Set it to zero in a normal-rainfall year and the map
-          stops driving the score as hard, which is the correct behavior: water is not a limiting
-          resource in the Piedmont most years.
+          Scales the food and water proximity weights. In <b>auto</b> it updates from the US Drought Monitor on
+          every refresh, area-weighted across your county rather than taking the worst category present.
         </p>
-        <input type="range" id="droughtRange" min="0" max="1" step="0.05" value="${w.drought.severity}" style="width:100%">
-        <div class="kv"><span>Severity</span><span id="droughtVal">${w.drought.severity}</span></div>
-        <div class="kv"><span>Multiplier on food &amp; water</span><span id="droughtMult">${(1 + w.droughtBoost * w.drought.severity).toFixed(2)}x</span></div>
-        <div class="note">${esc(w.drought.note ?? '')} <span class="dim">(as of ${esc(w.drought.asOf ?? 'unknown')})</span></div>
-        <button class="btn primary sm" id="saveDrought" style="margin-top:9px">Save</button>
+        <div class="kv"><span>Severity</span><span><b>${dr.drought.severity ?? 0}</b> &times;${(1 + w.droughtBoost * (dr.drought.severity ?? 0)).toFixed(2)} on food &amp; water</span></div>
+        <div class="kv"><span>Category</span><span>${esc(dr.drought.dominant ? dr.drought.dominant.toUpperCase() : '--')}${dr.drought.trend ? ` &middot; ${esc(dr.drought.trend)}` : ''}</span></div>
+        <div class="kv"><span>USDM map</span><span>${esc(dr.drought.asOf ?? 'never checked')}</span></div>
+        <div class="kv"><span>County</span><span>${dr.countyFips ? `FIPS ${esc(dr.countyFips)}` : '<span style="color:var(--amber)">not resolved — run setup</span>'}</span></div>
+        <div class="note">${esc(dr.drought.note ?? '')}</div>
+
+        <h4>Override</h4>
+        <input type="range" id="droughtRange" min="0" max="1" step="0.05" value="${dr.drought.severity ?? 0}" style="width:100%">
+        <div class="kv"><span>Manual value</span><span id="droughtVal">${dr.drought.severity ?? 0}</span></div>
+        <div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">
+          <button class="btn" id="saveDrought">Pin this value</button>
+          <button class="btn ${dr.drought.mode === 'auto' ? '' : 'primary'}" id="autoDrought" ${dr.drought.mode === 'auto' ? 'disabled' : ''}>Back to auto</button>
+          <button class="btn sm right" id="checkDrought">Check USDM now</button>
+        </div>
+        <div class="note" id="droughtMsg">Pinning switches to manual. USDM keeps getting checked and logged each refresh, it just stops overwriting you &mdash; the right call if you know your own water better than a county map does.</div>
+        ${dr.history?.length ? `<h4>Recent checks</h4>${dr.history.slice(0, 6).map((h) => `<div class="kv"><span>${esc(h.map_date ?? h.created_at.slice(0, 10))} ${esc((h.dominant ?? '').toUpperCase())}</span><span class="mono">${h.old_severity} &rarr; ${h.new_severity}</span></div>`).join('')}` : ''}
       </div>
-    </div>
 
     <div class="card">
       <h3>Scale calibration</h3>
@@ -241,12 +253,27 @@ export async function mount() {
 
   $('#droughtRange').oninput = (e) => {
     $('#droughtVal').textContent = e.target.value;
-    $('#droughtMult').textContent = `${(1 + w.droughtBoost * +e.target.value).toFixed(2)}x`;
   };
   $('#saveDrought').onclick = async () => {
-    await api('/api/drought', { method: 'POST', body: JSON.stringify({ severity: +$('#droughtRange').value }) });
+    await api('/api/drought', { method: 'POST', body: JSON.stringify({ severity: +$('#droughtRange').value, mode: 'manual' }) });
     await api('/api/refresh', { method: 'POST', body: '{}' });
     await mount();
+  };
+  $('#autoDrought').onclick = async () => {
+    await api('/api/drought', { method: 'POST', body: JSON.stringify({ mode: 'auto' }) });
+    await api('/api/drought/check', { method: 'POST', body: '{}' });
+    await api('/api/refresh', { method: 'POST', body: '{}' });
+    await mount();
+  };
+  $('#checkDrought').onclick = async (e) => {
+    e.target.disabled = true;
+    $('#droughtMsg').textContent = 'Checking the US Drought Monitor...';
+    try {
+      const r = await api('/api/drought/check', { method: 'POST', body: '{}' });
+      $('#droughtMsg').innerHTML = esc((r.log ?? []).join(' '));
+      if (r.changed) { await api('/api/refresh', { method: 'POST', body: '{}' }); await mount(); }
+    } catch (err) { $('#droughtMsg').textContent = err.message; }
+    finally { e.target.disabled = false; }
   };
 
   $('#doCalibrate').onclick = async (e) => {

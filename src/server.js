@@ -16,6 +16,7 @@ import { calibrate, distribution } from './calibrate.js';
 import { sunMoonFor } from './astro.js';
 import { rutFor, seasonHighlights } from './rut.js';
 import { loadSeasons, seasonsOn, strictnessOn, normalizeSeason, WEAPON_PROFILES } from './seasons.js';
+import { updateDrought, droughtHistory, countyFips } from './drought.js';
 import { safeWindSectors, standVerdict, thermalNotes } from './wind.js';
 import { ringCentroid, ringAcres, pathMidpoint, pathLengthYards, distanceToFeatureYards } from './geo.js';
 import { coverForStand, coverForPoints, manualCoverAt, describe, sampleNlcd, wmsInfo, NLCD_CLASSES } from './cover.js';
@@ -731,15 +732,42 @@ app.post('/api/weights/peak-rut', wrap((req, res) => {
   res.json({ peakRutDate: date, note: 'Run a refresh to rescore the season against the new peak date.' });
 }));
 
+// Manual override. Setting a value by hand switches the mode to manual, because silently
+// letting the next refresh overwrite a deliberate judgement would be worse than either
+// behaviour on its own.
 app.post('/api/drought', wrap((req, res) => {
-  const { severity, note } = req.body;
-  if (severity == null || severity < 0 || severity > 1) return res.status(400).json({ error: 'severity must be between 0 and 1' });
+  const { severity, note, mode } = req.body;
   const cfg = loadConfig();
-  cfg.drought.severity = +severity;
-  cfg.drought.asOf = todayLocal(cfg.property.timezone);
-  if (note != null) cfg.drought.note = note;
+
+  if (mode === 'auto') {
+    cfg.drought = { ...cfg.drought, mode: 'auto' };
+    saveConfig(cfg);
+    return res.json({ drought: loadConfig().drought, note: 'Switched to automatic. Refresh to pull the current US Drought Monitor reading.' });
+  }
+
+  if (severity == null || severity < 0 || severity > 1) return res.status(400).json({ error: 'severity must be between 0 and 1' });
+  cfg.drought = {
+    ...cfg.drought,
+    mode: 'manual',
+    severity: +severity,
+    asOf: todayLocal(cfg.property.timezone),
+    source: 'manual',
+    note: note ?? 'Set by hand.',
+  };
   saveConfig(cfg);
-  res.json({ drought: cfg.drought, note: 'Food and water weights rescale immediately. Recalibrate and refresh to update the season.' });
+  res.json({ drought: loadConfig().drought, note: 'Pinned to manual. USDM is still checked each refresh and logged, but will not overwrite this.' });
+}));
+
+app.get('/api/drought', wrap((req, res) => {
+  const cfg = loadConfig();
+  res.json({ drought: cfg.drought, countyFips: countyFips(cfg), history: droughtHistory(20) });
+}));
+
+// Force a check now rather than waiting for the nightly refresh.
+app.post('/api/drought/check', wrap(async (req, res) => {
+  const lines = [];
+  const r = await updateDrought({ log: (m) => { lines.push(m); console.log(`[drought] ${m}`); }, force: req.body?.force === true });
+  res.json({ ...r, log: lines, drought: loadConfig().drought });
 }));
 
 app.post('/api/calibrate', wrap((req, res) => {

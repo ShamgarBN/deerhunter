@@ -113,21 +113,56 @@ export function loadMap() {
   return readJson(FILES.map);
 }
 
-// Writes back to config.json only. A webhook that came from config.local.json or the
-// environment is stripped first, so a UI settings save can never copy a secret into the
-// tracked file.
-export function saveConfig(obj) {
-  const tracked = JSON.parse(JSON.stringify(obj));
-  // `season` is derived from the seasons array at load time. Writing it back would make a
-  // stale copy that quietly disagrees with the seasons the user actually edited.
-  if (tracked.season?._derived) delete tracked.season;
-  const onDisk = readJson(FILES.config);
-  const placeholder = onDisk?.discord?.webhookUrl ?? '';
-  if (tracked.discord && tracked.discord.webhookUrl !== placeholder) {
-    tracked.discord.webhookUrl = placeholder;
+/**
+ * Runtime writes go to config.local.json, never to the tracked config.json.
+ *
+ * config.json is a TEMPLATE: shipped defaults, committed, shared. config.local.json is
+ * this install. Anything the running app changes - drought severity, seasons edited in
+ * the UI, alert thresholds - is by definition this install, so writing it to the tracked
+ * file was wrong twice over.
+ *
+ * It was also silently broken. config.local.json is merged OVER config.json at load, so
+ * a value present in local shadowed whatever a save wrote to the tracked file. The
+ * automatic drought update wrote 0.749 to config.json, local still said 0.75 from
+ * September, and the load merge handed back the stale number with no error anywhere.
+ *
+ * Only the DIFF against config.json is stored, so local stays small and readable and the
+ * tracked defaults keep meaning something.
+ */
+function diffAgainst(base, next) {
+  const out = {};
+  for (const [k, v] of Object.entries(next)) {
+    if (k.startsWith('_')) continue;
+    if (JSON.stringify(base?.[k]) !== JSON.stringify(v)) out[k] = v;
   }
-  writeJson(FILES.config, tracked);
+  return out;
 }
+
+export function saveConfig(obj) {
+  const next = JSON.parse(JSON.stringify(obj));
+
+  // `season` is derived from the seasons array at load. Persisting it would create a
+  // stale copy that quietly disagrees with the seasons actually edited.
+  if (next.season?._derived) delete next.season;
+
+  // A webhook that arrived from the environment is not ours to write down.
+  if (process.env.DEERHUNTER_DISCORD_WEBHOOK && next.discord) {
+    const existing = fs.existsSync(FILES.configLocal) ? readJson(FILES.configLocal) : {};
+    next.discord = { ...next.discord, webhookUrl: existing.discord?.webhookUrl ?? '' };
+  }
+
+  const base = readJson(FILES.config);
+  const local = fs.existsSync(FILES.configLocal) ? readJson(FILES.configLocal) : {};
+  const changes = diffAgainst(base, next);
+
+  writeJson(FILES.configLocal, {
+    _comment: local._comment
+      ?? 'Your property, your secrets, your machine. Gitignored and deep-merged over config.json at load. Never commit this file.',
+    ...local,
+    ...changes,
+  });
+}
+
 export const saveScoring = (obj) => writeJson(FILES.scoring, obj);
 export const saveMap = (obj) => writeJson(FILES.map, obj);
 
