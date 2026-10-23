@@ -178,9 +178,9 @@ export async function balanceWhenReady(root = document) {
 }
 
 /** Markup for a score with its label beneath it. */
-export function stack(value, label, { cls = '', color = null, mini = false } = {}) {
+export function stack(value, label, { cls = '', color = null, mini = false, title = null } = {}) {
   const v = value == null ? '--' : Number(value).toFixed(1);
-  return `<span class="stack ${mini ? 'mini' : ''} ${cls}">
+  return `<span class="stack ${mini ? 'mini' : ''} ${cls}${title ? ' help' : ''}"${title ? ` title="${title}"` : ''}>
     <span class="n"${color ? ` style="color:${color}"` : ''}>${v}</span><span class="lab">${label}</span>
   </span>`;
 }

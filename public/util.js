@@ -13,6 +13,51 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
+// --- what the badges and abbreviations mean --------------------------------
+//
+// These live here rather than in the tab that first needed them because three tabs now
+// show the same badges. The Today tab shipped without any of this and read as four-letter
+// codes with no explanation, which is what duplicating the strings per module invites.
+
+export const CONFIDENCE_HELP = {
+  observed: {
+    short: 'Observed',
+    text: 'This slot has already passed. Temperature, wind and pressure are real measurements from the nearest reporting station, not a forecast. The most trustworthy row on the page.',
+  },
+  forecast: {
+    short: 'Forecast',
+    text: 'Real forecast data, inside the window where it holds up: NWS for temperature, precipitation and sky cover, Open-Meteo for wind and barometric pressure. Every factor is live.',
+  },
+  outlook: {
+    short: 'Outlook',
+    text: 'Still real forecast data, but past the confidence window where it is dependable. Directionally useful for planning, soft on specifics. Treat the wind here as a hint rather than a plan.',
+  },
+  climatology: {
+    short: 'Climatology',
+    text: 'Past the forecast horizon entirely. There is no weather for this day yet, so the score is the rut curve plus stand pressure plus 30-year climate normals. Rain, wind and pressure all read zero because they are genuinely unknown, which also means no scent verdict is possible.',
+  },
+};
+
+export const WIND_CONF_HELP = {
+  reliable: 'Wind is strong and steady enough to trust the scent verdict.',
+  marginal: 'Wind is light or inconsistent enough that the scent verdict is shaky. Check it yourself in the stand.',
+  unreliable: 'Too light or too variable to call scent from a forecast bearing. Below about 3 mph thermals decide where your scent goes, not the wind.',
+};
+
+export const VERDICT_HELP = {
+  safe: 'Scent clears every nearby bedding and food point by more than the safety angle.',
+  caution: 'Scent grazes a bedding area, or blows directly at a food source. Huntable, with risk.',
+  unsafe: 'Scent blows straight into bedding. This stand is blown out on this wind.',
+  unknown: 'No wind forecast for this slot, so scent safety cannot be computed. Expected past the forecast horizon.',
+  unreliable: 'Wind too light or variable to call scent from a forecast bearing. Below about 3 mph thermals decide where your scent goes.',
+};
+
+/** One hover string for a provenance badge: "Forecast - real forecast data, ...". */
+export const confTip = (conf) => {
+  const h = CONFIDENCE_HELP[conf];
+  return h ? `${h.short} \u2014 ${h.text}` : String(conf ?? '');
+};
+
 export const DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 export const compass = (deg) => (deg == null ? null : DIRS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16]);
 

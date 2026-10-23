@@ -11,20 +11,13 @@
 // since you last sat it, and distance to food and water. Only the first two change day
 // to day, and wind only exists inside the forecast window.
 
-import { api, $, $$, esc, scoreClass, fmtScore, compass, collapsible, wireCollapsibles, isOpen, rememberOpen } from '/util.js';
+import { api, $, $$, esc, scoreClass, fmtScore, compass, collapsible, wireCollapsibles, isOpen, rememberOpen,
+  VERDICT_HELP } from '/util.js';
 
 let onlyAvailable = false;
 let data = null;
 
 const MARK = { safe: '●', caution: '◐', unsafe: '○', unknown: '·', unreliable: '?' };
-
-const VERDICT_HELP = {
-  safe: 'Scent clears every nearby bedding and food point by more than the safety angle.',
-  caution: 'Scent grazes a bedding area, or blows directly at a food source. Huntable, with risk.',
-  unsafe: 'Scent blows straight into bedding. This stand is blown out on this wind.',
-  unknown: 'No wind forecast for this slot, so scent safety cannot be computed. Expected past the forecast horizon.',
-  unreliable: 'Wind too light or variable to call scent from a forecast bearing. Below about 3 mph thermals decide where your scent goes.',
-};
 
 function cellHtml(cell) {
   if (cell.buck == null && cell.general == null) return '<td class="dim">--</td>';

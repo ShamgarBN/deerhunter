@@ -6,7 +6,7 @@
 // Everything here is read-only and derived from the same API the other tabs use. Nothing
 // is computed client-side that the server does not already know.
 
-import { api, $, $$, esc, compass } from '/util.js';
+import { api, $, $$, esc, compass, confTip, WIND_CONF_HELP, VERDICT_HELP } from '/util.js';
 import {
   ramp, skyFor, stars, RIDGE, stack, balanceWhenReady,
   vizCompass, vizThermo, vizArrow, vizDial, vizDistance,
@@ -14,6 +14,48 @@ import {
 
 let slot = null;      // 'AM' | 'PM', null means pick automatically
 let data = null;
+let weights = null;   // /api/weights, for the factor hover text
+
+const SCORE_HELP = {
+  buck: 'Mature-buck daylight movement for this sit, on a 0-10 scale calibrated to this property. Driven mostly by the rut curve, then weather, stand rest and distance to food and water.',
+  general: 'General deer activity for this sit, scored separately because it routinely disagrees with the buck number. Food and water weigh far more heavily here, and the rut matters less.',
+};
+
+/**
+ * Hover text for one metric tile, built from the live weights rather than a copy of them.
+ *
+ * The research sentence and the weight both come from config/scoring.json via /api/weights,
+ * so a methodology edit shows up here without anyone remembering to update a second copy.
+ */
+function factorTip(key, contribution) {
+  const f = weights?.factors?.[key];
+  if (!f) return '';
+  const meta = [];
+  if (f.frozen) meta.push('Weighted zero and frozen, so it never moves either score');
+  else meta.push(`Weight ${Number(f.effectiveBuck).toFixed(2)} on the buck score, ${Number(f.effectiveGeneral).toFixed(2)} on deer activity`
+    + (f.droughtScaled ? ', drought scaling already included' : ''));
+  if (f.confidence) meta.push(`research confidence ${f.confidence}`);
+  if (f.reweightCandidate) meta.push('flagged to be settled by your own logged sits rather than asserted');
+  const parts = [`${f.label}. ${f.research}`, `${meta.join('; ')}.`];
+  if (contribution != null) {
+    const v = contribution;
+    parts.push(Math.abs(v) < 0.02
+      ? 'On this sit: no effect either way.'
+      : `On this sit: ${v > 0 ? 'helping' : 'hurting'} by ${Math.abs(v).toFixed(2)} points.`);
+  }
+  // f.note is deliberately left out. It is guidance for whoever edits the weights ("do
+  // not weaken this without a strong reason"), which belongs on the Model tab and pushed
+  // some of these tips past 1000 characters in a native tooltip.
+  return parts.join(' ');
+}
+
+/** The wind tile carries two different things, so it explains both. */
+function windTip(w, precipContribution) {
+  const conf = w.windConfidenceLabel ?? 'unknown';
+  const lead = `Wind ${Math.round(w.windMph ?? 0)} mph from ${compass(w.windDirDeg) ?? '?'}, gusting ${Math.round(w.gustMph ?? 0)}. `
+    + (WIND_CONF_HELP[conf] ?? 'No wind reading for this slot.');
+  return `${lead} Wind never moves the movement score: it only filters which stands are scent-safe. The bar below is rain. ${factorTip('precipitation', precipContribution)}`;
+}
 
 const grade = (v) => (v >= 8 ? 'Exceptional' : v >= 6.5 ? 'Strong' : v >= 5 ? 'Fair' : v >= 3.5 ? 'Slow' : 'Poor');
 
@@ -57,7 +99,7 @@ function metricTiles(s) {
   const maxAbs = Math.max(...Object.values(f).map((x) => Math.abs(x.contribution ?? 0)), 0.35);
   const weak = (w.windConfidenceLabel ?? '') !== 'reliable';
 
-  const tile = (k, v, sub, viz, contrib, off = false) => `<div class="m ${off ? 'off' : ''}">
+  const tile = (k, v, sub, viz, contrib, tip = '', off = false) => `<div class="m ${off ? 'off' : ''}${tip ? ' help' : ''}"${tip ? ` title="${esc(tip)}"` : ''}>
     <div class="mh"><div><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>
     <div class="viz">${viz}</div></div>${contrib != null ? contribBar(contrib, maxAbs) : ''}</div>`;
 
@@ -66,32 +108,41 @@ function metricTiles(s) {
     ${tile('Wind + rain', `${Math.round(w.windMph ?? 0)} ${compass(w.windDirDeg) ?? ''}`,
       weak ? `<span style="color:var(--amber)">${esc(w.windConfidenceLabel ?? 'unknown')}</span>`
            : `gust ${Math.round(w.gustMph ?? 0)}`,
-      vizCompass(w.windDirDeg, weak), f.precipitation?.contribution)}
+      vizCompass(w.windDirDeg, weak), f.precipitation?.contribution,
+      windTip(w, f.precipitation?.contribution))}
 
     ${tile('Temp vs normal', `${Math.round(w.tempF ?? 0)}&deg;`,
       w.departureF != null ? `${w.departureF > 0 ? '+' : ''}${Math.round(w.departureF)} vs normal` : 'no normal',
-      vizThermo(w.tempF ?? 50, w.tempNormalF ?? 50), f.tempDeparture?.contribution)}
+      vizThermo(w.tempF ?? 50, w.tempNormalF ?? 50), f.tempDeparture?.contribution,
+      factorTip('tempDeparture', f.tempDeparture?.contribution))}
 
     ${tile('24h change', w.tempChange24h != null ? `${w.tempChange24h > 0 ? '+' : ''}${Math.round(w.tempChange24h)}&deg;` : '--',
       esc(f.tempChange24h?.detail?.direction ?? 'no reading'),
-      vizArrow(w.tempChange24h ?? 0), f.tempChange24h?.contribution)}
+      vizArrow(w.tempChange24h ?? 0), f.tempChange24h?.contribution,
+      factorTip('tempChange24h', f.tempChange24h?.contribution))}
 
     ${tile('Barometer', w.pressureHpa ? Math.round(w.pressureHpa) : '--',
       w.pressureChange24h != null ? `${w.pressureChange24h > 0 ? '+' : ''}${w.pressureChange24h} / 24h` : 'no reading',
-      vizArrow(w.pressureChange24h ?? 0, 6), f.pressureTrend?.contribution)}
+      vizArrow(w.pressureChange24h ?? 0, 6), f.pressureTrend?.contribution,
+      factorTip('pressureTrend', f.pressureTrend?.contribution))}
 
     ${tile('Stand rest', hp.neverHunted ? '&infin;' : `${hp.daysSince ?? 0}d`,
       hp.neverHunted ? 'never hunted' : 'since last sat',
-      vizDial(hp.neverHunted ? 1 : Math.min(1, (hp.daysSince ?? 0) / 14)), f.huntingPressure?.contribution)}
+      vizDial(hp.neverHunted ? 1 : Math.min(1, (hp.daysSince ?? 0) / 14)), f.huntingPressure?.contribution,
+      factorTip('huntingPressure', f.huntingPressure?.contribution))}
 
     ${tile('Food', `${f.foodProximity?.detail?.distanceYards ?? '--'}<span style="font-size:15px"> yd</span>`,
-      'to nearest', vizDistance(f.foodProximity?.detail?.distanceYards, 700), f.foodProximity?.contribution)}
+      'to nearest', vizDistance(f.foodProximity?.detail?.distanceYards, 700), f.foodProximity?.contribution,
+      factorTip('foodProximity', f.foodProximity?.contribution))}
 
     ${tile('Water', `${f.waterProximity?.detail?.distanceYards ?? '--'}<span style="font-size:15px"> yd</span>`,
-      'to nearest active', vizDistance(f.waterProximity?.detail?.distanceYards, 900), f.waterProximity?.contribution)}
+      'to nearest active', vizDistance(f.waterProximity?.detail?.distanceYards, 900), f.waterProximity?.contribution,
+      factorTip('waterProximity', f.waterProximity?.contribution))}
 
     ${tile('Moon', `${Math.round(s.astro?.moon?.illumination ?? 0)}<span style="font-size:15px">%</span>`,
-      'not scored', vizDial((s.astro?.moon?.illumination ?? 0) / 100, '#3d4530'), null, true)}
+      'not scored', vizDial((s.astro?.moon?.illumination ?? 0) / 100, '#3d4530'), null,
+      `${Math.round(s.astro?.moon?.illumination ?? 0)}% illuminated, ${s.astro?.moon?.phaseName ?? 'unknown phase'}. `
+        + factorTip('moonIllumination', null), true)}
   </div>`;
 }
 
@@ -103,7 +154,7 @@ function standRow(st, rank) {
       <div class="k">${isP ? 'Primary' : 'Backup'}</div>
       <div class="nm">${esc(st.label)}</div>
       <div class="meta">
-        <span class="verdictpill vp-${st.verdict}">${esc(st.verdict)}</span>
+        <span class="verdictpill vp-${st.verdict} help" title="${esc(`Scent ${st.verdict}. ${VERDICT_HELP[st.verdict] ?? ''}${st.conflicts?.length ? ` Scent reaches: ${st.conflicts.join(', ')}.` : ''}`)}">${esc(st.verdict)}</span>
         <span>${st.daysSinceHunted == null ? 'never hunted' : `${st.daysSinceHunted}d rest`}</span>
         ${st.terrain ? `<span>${esc(st.terrain)}</span>` : ''}
         ${st.foodYards != null ? `<span>${st.foodYards}yd food</span>` : ''}
@@ -111,8 +162,8 @@ function standRow(st, rank) {
       ${isP && st.thermalNotes?.[0] ? `<div class="thermal">${esc(st.thermalNotes[0])}</div>` : ''}
     </div>
     <div class="sc2">
-      ${stack(st.buckScore, 'Buck', { mini: true, color: ramp(st.buckScore) })}
-      ${stack(st.generalScore, 'Deer', { mini: true, cls: 'sec' })}
+      ${stack(st.buckScore, 'Buck', { mini: true, color: ramp(st.buckScore), title: esc(SCORE_HELP.buck) })}
+      ${stack(st.generalScore, 'Deer', { mini: true, cls: 'sec', title: esc(SCORE_HELP.general) })}
     </div>
   </div>`;
 }
@@ -142,13 +193,13 @@ function heroFor(s, openSeasons) {
     <div class="inner">
       <div class="kick">
         ${(openSeasons ?? []).map((x) => `<span><span class="sdot" style="background:${x.color}"></span> ${esc(x.label)}</span>`).join('')}
-        <span>${esc(s.rutPhase)} ${s.rutOffset >= 0 ? '+' : ''}${s.rutOffset}</span>
+        <span class="help" title="${esc(`${s.rutPhase}, day ${s.rutOffset >= 0 ? '+' : ''}${s.rutOffset} from the peak breeding date${weights?.peakRutDate ? ` (${weights.peakRutDate})` : ''}. Negative is before the peak, positive after. The buck score peaks during chasing around day -4, not at day 0, because dominant bucks go quiet with an estrous doe through lockdown.`)}">${esc(s.rutPhase)} ${s.rutOffset >= 0 ? '+' : ''}${s.rutOffset}</span>
         <span>${s.slot === 'AM' ? 'MORNING' : 'EVENING'} SIT</span>
-        <span>LIGHT ${esc(s.astro?.legalStart ?? '')}&ndash;${esc(s.astro?.legalEnd ?? '')}</span>
+        <span class="help" title="${esc('Legal shooting light. The sit window scored here is longer: a morning runs from an hour before sunrise through four hours after it, and an evening from four hours before sunset through an hour after. Weather is aggregated across that whole window, not sampled at one instant.')}">LIGHT ${esc(s.astro?.legalStart ?? '')}&ndash;${esc(s.astro?.legalEnd ?? '')}</span>
       </div>
       <div class="scorewrap">
-        ${stack(s.buckScore, 'Buck', { cls: 'primary' })}
-        ${stack(s.generalScore, 'Deer activity', { cls: 'secondary' })}
+        ${stack(s.buckScore, 'Buck', { cls: 'primary', title: esc(SCORE_HELP.buck) })}
+        ${stack(s.generalScore, 'Deer activity', { cls: 'secondary', title: esc(SCORE_HELP.general) })}
       </div>
       <div class="verdict">${grade(s.buckScore)} movement. ${r[0] ? `Sit <em>${esc(r[0].label)}</em>.` : '<em>No clear stand.</em>'}</div>
     </div>
@@ -157,7 +208,15 @@ function heroFor(s, openSeasons) {
 
 export async function mount() {
   const state = window.__dh.state;
-  data = await api(`/api/forecast?days=${Math.max(8, state.forecast?.nearTermDays ?? 8)}`);
+  // Weights ride along with the forecast so the metric tiles can explain themselves from
+  // config/scoring.json instead of a hardcoded copy of it. A failure here costs tooltips,
+  // not the page, so it never rejects.
+  const [forecast, w8] = await Promise.all([
+    api(`/api/forecast?days=${Math.max(8, state.forecast?.nearTermDays ?? 8)}`),
+    api('/api/weights').catch(() => null),
+  ]);
+  data = forecast;
+  weights = w8;
 
   const today = state.today;
   const todays = data.slots.filter((s) => s.date === today);
@@ -189,7 +248,7 @@ export async function mount() {
       ${conf !== 'reliable' ? `<div class="lamp ${conf === 'unreliable' ? 'bad' : ''}">
         &#9650;&nbsp; WIND ${esc(conf.toUpperCase())} &mdash; scent call not trusted at ${Math.round(w.windMph ?? 0)} mph</div>` : ''}
       ${pickBlock(s)}
-      ${next.length ? `<div class="weekstrip">${next.map((x) => `<div>
+      ${next.length ? `<div class="weekstrip">${next.map((x) => `<div class="help" title="${esc(`${x.weekday} ${x.date}, morning sit. ${confTip(x.confidence)}`)}">
         <div class="d">${esc(x.weekday.toUpperCase())} ${x.date.slice(5)}</div>
         ${stack(x.buckScore, 'Buck', { mini: true, color: ramp(x.buckScore) })}
         <div class="g">${x.generalScore.toFixed(1)} deer</div>
@@ -205,7 +264,7 @@ export async function mount() {
     </div>
     <span class="muted mono right" style="font-size:11px">
       ${todays.length ? today : `season opens ${data.slots[0]?.date ?? ''}`}
-      &middot; <span class="conf ${esc(s.confidence)}">${esc(s.confidence)}</span>
+      &middot; <span class="conf help ${esc(s.confidence)}" title="${esc(confTip(s.confidence))}">${esc(s.confidence)}</span>
     </span>`;
   $$('#slotSeg button').forEach((b) => { b.onclick = () => { slot = b.dataset.s; mount(); }; });
 

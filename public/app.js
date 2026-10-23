@@ -5,7 +5,8 @@
 // fetch fails, with the cache age shown in the header so a stale number never passes for
 // a live one.
 
-import { $, $$, esc, api, net, compass, fmtScore, collapsible, wireCollapsibles, isOpen, rememberOpen } from '/util.js';
+import { $, $$, esc, api, net, compass, fmtScore, collapsible, wireCollapsibles, isOpen, rememberOpen,
+  CONFIDENCE_HELP, WIND_CONF_HELP, confTip } from '/util.js';
 import { ramp, stack, balanceWhenReady } from '/viz.js';
 
 let state = {};
@@ -13,36 +14,6 @@ let calendar = null;
 // Mirrors config.scent.safeAngleThresholdDeg, used only for the tooltip that explains how
 // far a weapon tightens it.
 const cfgScentThreshold = 115;
-
-// --- what the badges and abbreviations mean --------------------------------
-//
-// These appear on every row of the calendar and none of them are self-explanatory, so
-// each is spelled out on hover against its own actual values rather than generically.
-
-const CONFIDENCE_HELP = {
-  observed: {
-    short: 'Observed',
-    text: 'This slot has already passed. Temperature, wind and pressure are real measurements from the nearest reporting station, not a forecast. The most trustworthy row on the page.',
-  },
-  forecast: {
-    short: 'Forecast',
-    text: 'Real forecast data, inside the window where it holds up: NWS for temperature, precipitation and sky cover, Open-Meteo for wind and barometric pressure. Every factor is live.',
-  },
-  outlook: {
-    short: 'Outlook',
-    text: 'Still real forecast data, but past the confidence window where it is dependable. Directionally useful for planning, soft on specifics. Treat the wind here as a hint rather than a plan.',
-  },
-  climatology: {
-    short: 'Climatology',
-    text: 'Past the forecast horizon entirely. There is no weather for this day yet, so the score is the rut curve plus stand pressure plus 30-year climate normals. Rain, wind and pressure all read zero because they are genuinely unknown, which also means no scent verdict is possible.',
-  },
-};
-
-const WIND_CONF_HELP = {
-  reliable: 'Wind is strong and steady enough to trust the scent verdict.',
-  marginal: 'Wind is light or inconsistent enough that the scent verdict is shaky. Check it yourself in the stand.',
-  unreliable: 'Too light or too variable to call scent from a forecast bearing. Below about 3 mph thermals decide where your scent goes, not the wind.',
-};
 
 // Builds the hover text for the conditions cell from that slot's real numbers, so the
 // explanation names the figures you are actually looking at.
