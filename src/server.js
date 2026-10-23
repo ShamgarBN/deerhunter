@@ -13,7 +13,7 @@ import { getDb } from './db.js';
 import { refresh, checkAlerts, lastHuntedByStand } from './jobs.js';
 import { runReweight, resetToPriors, adjustmentHistory } from './reweight.js';
 import { calibrate, distribution } from './calibrate.js';
-import { sunMoonFor } from './astro.js';
+import { sunMoonFor, minutesFromLightAnchor } from './astro.js';
 import { rutFor, seasonHighlights } from './rut.js';
 import { loadSeasons, seasonsOn, strictnessOn, normalizeSeason, WEAPON_PROFILES } from './seasons.js';
 import { updateDrought, droughtHistory, countyFips } from './drought.js';
@@ -40,6 +40,11 @@ const wrap = (fn) => (req, res) => {
 
 // --- state ------------------------------------------------------------------
 
+// What a deer was doing when it appeared. A fixed list rather than free text so the
+// annual review can group on it, served from /api/state so the form offering the options
+// and the endpoint validating them cannot drift apart.
+const BEHAVIORS = ['feeding', 'travelling', 'cruising', 'chasing', 'bedded', 'alert'];
+
 app.get('/api/state', wrap((req, res) => {
   const cfg = loadConfig();
   const scoring = loadScoring();
@@ -64,6 +69,7 @@ app.get('/api/state', wrap((req, res) => {
     peakRutDate: scoring.peakRutDate,
     drought: cfg.drought,
     alerts: cfg.alerts,
+    behaviors: BEHAVIORS,
     forecast: cfg.forecast,
     mapConfig: { center: map.center, defaultZoom: map.defaultZoom, markerTypes: map.markerTypes, terrainPositions: map.terrainPositions, imageOverlay: map.imageOverlay },
     counts: {
@@ -557,11 +563,18 @@ app.get('/api/sits', wrap((req, res) => {
       FROM sits s LEFT JOIN sit_snapshots sn ON sn.sit_id = s.id
      ORDER BY s.date DESC, s.slot DESC
   `).all();
+  const sightings = getDb().prepare('SELECT * FROM sightings ORDER BY minutes_from_anchor IS NULL, minutes_from_anchor, id').all();
+  const bySit = new Map();
+  for (const g of sightings) {
+    if (!bySit.has(g.sit_id)) bySit.set(g.sit_id, []);
+    bySit.get(g.sit_id).push(g);
+  }
   res.json(rows.map((r) => ({
     ...r,
     saw_deer: !!r.saw_deer,
     factors: r.factors_json ? JSON.parse(r.factors_json) : null,
     raw: r.raw_json ? JSON.parse(r.raw_json) : null,
+    sightings: bySit.get(r.id) ?? [],
   })));
 }));
 
@@ -639,7 +652,71 @@ app.post('/api/sits', wrap((req, res) => {
 app.delete('/api/sits/:id', wrap((req, res) => {
   const db = getDb();
   db.prepare('DELETE FROM sit_snapshots WHERE sit_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM sightings WHERE sit_id = ?').run(req.params.id);
   const r = db.prepare('DELETE FROM sits WHERE id = ?').run(req.params.id);
+  res.json({ deleted: r.changes });
+}));
+
+// --- sightings --------------------------------------------------------------
+//
+// Detail inside a sit, all of it optional. Nothing here feeds scoring: it is recorded now
+// so the annual review has something a deer count cannot give it, in the same way land
+// cover is sampled and left unweighted until there is data to justify a weight.
+
+app.post('/api/sits/:id/sightings', wrap((req, res) => {
+  const db = getDb();
+  const cfg = loadConfig();
+  const sit = db.prepare('SELECT * FROM sits WHERE id = ?').get(req.params.id);
+  if (!sit) return res.status(404).json({ error: 'no such sit' });
+
+  const b = req.body ?? {};
+  const deer = Math.max(1, Math.round(+(b.deer_count ?? 1) || 1));
+  const bucks = Math.min(deer, Math.max(0, Math.round(+(b.buck_count ?? 0) || 0)));
+
+  const bearing = b.bearing_deg == null || b.bearing_deg === '' ? null
+    : ((+b.bearing_deg % 360) + 360) % 360;
+  if (bearing != null && Number.isNaN(bearing)) return res.status(400).json({ error: 'bearing must be a number of degrees' });
+
+  const dist = b.distance_yards == null || b.distance_yards === '' ? null
+    : Math.max(0, Math.round(+b.distance_yards));
+  if (dist != null && Number.isNaN(dist)) return res.status(400).json({ error: 'distance must be a number of yards' });
+
+  const behavior = b.behavior && BEHAVIORS.includes(b.behavior) ? b.behavior : null;
+
+  // A time that cannot be placed against the light anchor is kept anyway: the raw clock
+  // reading is still worth having, it just cannot join the when-in-the-window analysis.
+  const atTime = (b.at_time ?? '').trim() || null;
+  const minutes = atTime
+    ? minutesFromLightAnchor(sit.date, sit.slot, atTime, cfg.property.lat, cfg.property.lon, cfg.property.timezone)
+    : null;
+
+  const info = db.prepare(`
+    INSERT INTO sightings (sit_id, at_time, minutes_from_anchor, deer_count, buck_count,
+                           bearing_deg, distance_yards, behavior, notes, created_at)
+    VALUES (@sit_id,@at_time,@minutes,@deer,@bucks,@bearing,@dist,@behavior,@notes,@created_at)
+  `).run({
+    sit_id: sit.id, at_time: atTime, minutes, deer, bucks,
+    bearing, dist, behavior,
+    notes: (b.notes ?? '').trim() || null,
+    created_at: nowIso(),
+  });
+
+  // The sit's own totals stay the headline number and are never silently overwritten,
+  // but a detail row that pushes past them means the summary was low. Report it rather
+  // than guessing which one Ben meant.
+  const totals = db.prepare('SELECT SUM(deer_count) d, SUM(buck_count) b FROM sightings WHERE sit_id = ?').get(sit.id);
+  res.json({
+    id: info.lastInsertRowid,
+    minutesFromAnchor: minutes,
+    anchor: sit.slot === 'AM' ? 'sunrise' : 'sunset',
+    timeUnplaced: !!atTime && minutes == null,
+    detailTotals: { deer: totals.d ?? 0, bucks: totals.b ?? 0 },
+    exceedsSitTotal: (totals.d ?? 0) > sit.deer_count,
+  });
+}));
+
+app.delete('/api/sightings/:id', wrap((req, res) => {
+  const r = getDb().prepare('DELETE FROM sightings WHERE id = ?').run(req.params.id);
   res.json({ deleted: r.changes });
 }));
 

@@ -403,6 +403,32 @@ cloud, moon — so nobody is reconstructing "was it windy that morning?" from me
 March. That's what makes the reweighting trustworthy. A form nobody fills in produces no
 data to learn from.
 
+### Sighting detail
+
+A count tells you deer showed up. It can't tell you they came from the northeast at 85
+yards, forty minutes before first light, feeding. That second thing is what teaches a
+property, and no amount of reweighting recovers it later from a number.
+
+So a logged sit can carry any number of **sightings**, each with a time, how many deer and
+how many of those were bucks, a compass bearing from the stand, a distance, and what the
+animal was doing. Every field is optional.
+
+It is deliberately not part of the logging form. That form stays four fields you can
+finish with cold hands before climbing down; detail gets added afterwards from the sit
+list, which also means you can add it to a sit logged weeks ago. A sit with no detail is
+exactly as valid as it was before the feature existed.
+
+Times are stored twice: the clock reading as entered, and **signed minutes from the light
+anchor** — sunrise for a morning sit, sunset for an evening one. The second is the one
+worth comparing, because sunrise drifts about 45 minutes across a season. 7:05am is
+fourteen minutes *after* sunrise in mid-November and sixteen minutes *before* it just
+before Christmas, and a raw clock column would quietly treat those as the same morning.
+
+**Nothing here is scored.** It is recorded now so the annual review has something to work
+with, the same arrangement land cover has. Sighting totals never overwrite the sit's own
+count either: if the detail adds up to more deer than the sit records, the form says so
+and leaves both alone rather than guessing which one you meant.
+
 ---
 
 ## Data sources

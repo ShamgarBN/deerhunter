@@ -7,7 +7,7 @@
 // effect from moon phase, and specifically none for the solunar overhead/underfoot theory.
 
 import SunCalc from 'suncalc';
-import { ymd, prettyTime, MS_PER_DAY } from './timeutil.js';
+import { ymd, prettyTime, hhmm, MS_PER_DAY } from './timeutil.js';
 
 // suncalc phase: 0 = new, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter.
 // Named by range rather than nearest-anchor so a 46% waxing moon reads "waxing crescent"
@@ -94,6 +94,26 @@ export function sitWindow(dateStr, slot, lat, lon) {
     sunrise: t.sunrise,
     sunset: t.sunset,
   };
+}
+
+/**
+ * Signed minutes between a wall-clock time and that slot's light anchor: sunrise for a
+ * morning sit, sunset for an evening one. Negative is before the anchor.
+ *
+ * Both sides are reduced to local wall-clock minutes before subtracting, which sidesteps
+ * timezone arithmetic entirely. That is safe here because both times always land on the
+ * same local date: an AM window opens an hour before sunrise and a PM window closes an
+ * hour after sunset, so neither crosses midnight at this latitude.
+ */
+export function minutesFromLightAnchor(dateStr, slot, timeStr, lat, lon, tz = 'America/New_York') {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(timeStr ?? '').trim());
+  if (!m) return null;
+  const mins = +m[1] * 60 + +m[2];
+  if (+m[1] > 23 || +m[2] > 59) return null;
+  const w = sitWindow(dateStr, slot, lat, lon);
+  const anchorAt = slot === 'AM' ? w.sunrise : w.sunset;
+  const [ah, am] = hhmm(anchorAt, tz).split(':').map(Number);
+  return mins - (ah * 60 + am);
 }
 
 // Kept for callers that still want a single representative instant, and used as the

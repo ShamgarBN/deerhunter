@@ -292,7 +292,7 @@ main{padding:18px;max-width:1240px;margin:0 auto}
 /* ---------- forms ---------- */
 label{display:block;font-family:var(--mono);font-size:9.5px;color:var(--dim);margin:9px 0 3px;
   text-transform:uppercase;letter-spacing:1.6px}
-input[type=text],input[type=date],input[type=number],select,textarea{
+input[type=text],input[type=date],input[type=number],input[type=time],select,textarea{
   width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--bone);
   border-radius:5px;padding:7px 9px;font-size:13px;font-family:var(--sans)}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
@@ -328,6 +328,20 @@ table.data th{text-align:left;font-family:var(--mono);color:var(--dim);font-weig
   text-transform:uppercase;letter-spacing:1.6px;padding:7px 8px;border-bottom:1px solid var(--line)}
 table.data td{padding:6px 8px;border-bottom:1px solid #22271a;vertical-align:top}
 table.data tr:hover{background:var(--panel2)}
+
+/* Sighting detail inside a logged sit. Indented and quieter than the sit row itself:
+   it is supporting evidence for that row, not a peer of it. */
+tr.detailrow>td{background:#14170e;border-bottom:1px solid var(--line);padding-top:2px}
+tr.detailrow:hover{background:none}
+.sighting{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:12px;padding:4px 0 4px 13px;border-left:2px solid var(--line);margin-bottom:3px}
+.sighting+.sightform{margin-top:6px}
+.sightform{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 0 3px 13px;
+  border-left:2px solid var(--moss)}
+.sightform input,.sightform select{width:auto;padding:4px 7px;font-size:12px}
+.sightform input[type=text]{min-width:130px;flex:1}
+.sightmsg{font-size:11.5px}
+.btn.sm.has{border-color:var(--moss);color:var(--moss)}
 .banner{border:1px solid var(--line);border-left:3px solid var(--amber);background:var(--panel2);
   border-radius:7px;padding:11px 13px;margin-bottom:12px;font-size:13px;line-height:1.55}
 .banner.warn{border-left-color:var(--rust)}

@@ -5,6 +5,11 @@
 // (date, slot, stand, saw deer); the tool attaches the conditions itself from its own
 // weather history. That is what makes reweighting honest later: nobody is reconstructing
 // "was it windy that morning?" from memory in March.
+//
+// sightings hangs off sits and is optional. It holds the things a count throws away:
+// which direction a deer came from, how far out, when in the window, what it was doing.
+// Nothing scores off it yet, by design. It is capture now, analysis at the annual review,
+// the same arrangement land cover has.
 
 import Database from 'better-sqlite3';
 import fs from 'fs';
@@ -126,6 +131,32 @@ function migrate(d) {
       sent_at       TEXT NOT NULL
     );
 
+    -- Optional detail inside one sit: where a deer appeared, when, and what it was doing.
+    -- The sits row records THAT deer were seen. This records WHERE and WHEN, which a count
+    -- can never recover afterwards, and which is the data that actually teaches a property.
+    --
+    -- Deliberately a separate table rather than columns on sits. One sit can produce six
+    -- sightings or none, and the four-field sit form stays the thing you fill in from the
+    -- stand. Detail gets added later, from the couch, and only when it is worth the typing.
+    CREATE TABLE IF NOT EXISTS sightings (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      sit_id          INTEGER NOT NULL REFERENCES sits(id) ON DELETE CASCADE,
+      at_time         TEXT,              -- 'HH:MM' local wall clock, as read off a watch
+      -- Signed minutes from sunrise (AM) or sunset (PM), computed on save. Normalised to
+      -- the light anchor rather than the window start because sunrise drifts about 45
+      -- minutes across a season, and "40 minutes after first light" has to mean the same
+      -- thing in October and December for the number to be worth comparing.
+      minutes_from_anchor INTEGER,
+      deer_count      INTEGER NOT NULL DEFAULT 1,
+      buck_count      INTEGER NOT NULL DEFAULT 0,
+      bearing_deg     REAL,              -- compass bearing FROM the stand TO the deer
+      distance_yards  INTEGER,
+      behavior        TEXT,              -- feeding | travelling | cruising | chasing | bedded | alert
+      notes           TEXT,
+      created_at      TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sightings_sit ON sightings(sit_id);
     CREATE INDEX IF NOT EXISTS idx_sits_date ON sits(date);
     CREATE INDEX IF NOT EXISTS idx_sits_stand ON sits(stand_id);
     CREATE INDEX IF NOT EXISTS idx_sits_season ON sits(season);

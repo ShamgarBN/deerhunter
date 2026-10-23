@@ -99,6 +99,10 @@ pending, so do not re-propose them as oversights. Each note says what would reop
 - **Access routes stay unscored.** The geometry to detect walking past bedding in the
   dark already exists, and the audit called that a known sit-killer. Ben declined. They
   remain reference-only lines on the map, the same as game trails.
+- **Food gets no seasonality.** Standing beans in October and bare stubble in November
+  are one static distance, and a mast crop that is gone by December never changes. The
+  audit flagged it; Ben was not concerned enough to spend time on it. Leave it alone
+  unless he raises it, and do not model it as a silent improvement.
 - **Stand height stays unscored.** The field is stored and served but no scoring code
   reads it, and that is correct here: every stand on this property sits 6-8 ft up, so the
   variable has no spread to discriminate on. This is the same trap the old fixed proximity
@@ -138,6 +142,28 @@ Re-check when reviewing: whether MRLC has published a newer NLCD vintage (the la
 is in `src/cover.js` as `NLCD_2021_Land_Cover_L48`; the capabilities document lists what is
 available), and whether the USDA CropScape crop-type API has become usable, which would
 give per-year crop identification that NLCD cannot.
+
+### Sighting detail is captured but unscored
+
+`sightings` hangs off `sits` and holds what a deer count throws away: bearing from the
+stand, distance, what the animal was doing, and the time, normalised to signed minutes
+from sunrise or sunset so a 7:05am sighting in October and one in December are comparable.
+
+This is the first review that may have some. It is worth real attention, because it is the
+only data here that a reweighting pass cannot use and cannot reconstruct:
+
+- Does movement cluster at a particular offset from first light, and does that offset move
+  as the rut progresses? The sit windows are five hours; if everything happens in one of
+  them, that is worth knowing before Ben spends the other four in a stand.
+- Do bearings cluster? Consistent approach directions are evidence about bedding and trail
+  placement that the map may currently have in the wrong place, and the scent geometry
+  depends on those markers being right.
+- Does behavior split by rut phase the way the curve assumes? Chasing observations
+  clustering away from the modelled chasing window is the single best reason to move the
+  peak rut date off its default.
+
+Do not add a scoring factor from it unilaterally. If it suggests one, raise it with Ben
+and put it through the reweighting system with a stated prior, the same as any other.
 
 ### Comparing predictions against what happened
 
