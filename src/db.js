@@ -156,6 +156,13 @@ function migrate(d) {
       created_at      TEXT NOT NULL
     );
 
+    -- Trail-camera ingestion was built and then taken back out at Ben's request; see
+    -- README "Scope". Nothing has read this table since, and it never reached the public
+    -- repo, so the only databases carrying it are the ones that ran that build. Dropping
+    -- it on startup cleans those up wherever they are, including the Mac mini deployment.
+    -- Safe to delete this line once every local database has started once.
+    DROP TABLE IF EXISTS camera_detections;
+
     CREATE INDEX IF NOT EXISTS idx_sightings_sit ON sightings(sit_id);
     CREATE INDEX IF NOT EXISTS idx_sits_date ON sits(date);
     CREATE INDEX IF NOT EXISTS idx_sits_stand ON sits(stand_id);
