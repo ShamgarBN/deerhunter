@@ -155,12 +155,27 @@ export function saveConfig(obj) {
   const local = fs.existsSync(FILES.configLocal) ? readJson(FILES.configLocal) : {};
   const changes = diffAgainst(base, next);
 
-  writeJson(FILES.configLocal, {
+  const merged = {
     _comment: local._comment
       ?? 'Your property, your secrets, your machine. Gitignored and deep-merged over config.json at load. Never commit this file.',
     ...local,
     ...changes,
-  });
+  };
+
+  // Drop any override that has gone back to its config.json value.
+  //
+  // Without this, local overrides are write-only. `changes` holds just the keys that
+  // differ from base, so setting one BACK to its default produces no entry, the stale
+  // copy survives in `...local`, and it keeps winning the deep merge at load. The change
+  // appears to save and then reads back as the old value, with nothing reporting an
+  // error. Every caller passes a fully merged config, so a key absent from `changes`
+  // genuinely means "same as base" rather than "not supplied".
+  for (const k of Object.keys(base)) {
+    if (k.startsWith('_')) continue;
+    if (!(k in changes)) delete merged[k];
+  }
+
+  writeJson(FILES.configLocal, merged);
 }
 
 export const saveScoring = (obj) => writeJson(FILES.scoring, obj);
