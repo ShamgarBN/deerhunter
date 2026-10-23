@@ -666,6 +666,29 @@ importing you have two independent histories and should pick one home and stop u
 other. Running both at once also means two schedulers against two databases and duplicate
 Discord alerts.
 
+### The icon
+
+`build/icon.icns` is generated from the source artwork by `scripts/make-icon.py`, which is
+hand-rolled PNG decode and encode over zlib because this machine has no ImageMagick,
+Pillow or sharp, and `sips` cannot mask.
+
+Two things make an icon look native, and neither is "rounded corners". The shape is a
+**superellipse**, not a rounded rectangle: a rounded rect joins a straight edge to a
+circular arc and the curvature jumps at the join, which is why one looks subtly wrong next
+to real icons even at a matching radius. And the artwork is **inset**, 824 square on a
+1024 canvas, because art drawn to the edges reads as oversized in the Dock.
+
+The source is scaled past the body and centre-cropped. Source art carries its own corner
+radius, and cutting that with a different curve leaves a pale crescent in each corner that
+reads as a halo at Dock size.
+
+```bash
+python3 scripts/make-icon.py build/icon-1024.png build/icon-shaped.png
+```
+
+Then rebuild the `.iconset` and run `iconutil`. The menu-bar icon is the same image with
+the canvas padding cropped off: that padding is for the Dock grid, not for an 18px slot.
+
 ### It is unsigned
 
 There is no Apple Developer certificate behind this build, so Gatekeeper will refuse a
