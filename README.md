@@ -254,7 +254,8 @@ Pick the type, then toggle Pin / Area / Line.
 | **Line** | A creek, a drainage, a hedgerow, a bedding strip along a bottom | Nearest point anywhere along the run |
 
 Trails and access routes are a separate thing: they stay reference-only and never score.
-A water line does score.
+That one is a decision rather than a gap: scoring an access route that passes close to
+bedding was raised and declined. A water line does score.
 
 This changes the numbers, not just the picture:
 
@@ -578,7 +579,10 @@ since; and a lookup failure leaves cover blank without affecting any other numbe
 
 No ballistics or wind-drift calculator — "windage" here means wind's effect on deer and
 scent, not a shooting tool. No auth, no multi-user. No GIS or elevation modeling; the
-property is under 100 acres and terrain tags cover what's needed. No native mobile app;
+property is under 100 acres and terrain tags cover what's needed. Stand height is
+recorded but deliberately unscored, because the stands on the property it was built for
+are all within a couple of feet of each other and a variable with no spread cannot
+discriminate. No native mobile app;
 the Tailscale-reachable dashboard covers phone access.
 
 No trail-camera ingestion. It was built once and taken back out at the owner's request,

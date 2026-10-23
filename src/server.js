@@ -421,6 +421,9 @@ app.post('/api/map/points', wrap((req, res) => {
     ...(geom.shape ? { shape: geom.shape } : {}),
     notes: p.notes ?? '',
     ...(p.type === 'water' ? { active: p.active !== false } : {}),
+    // height is recorded but deliberately unscored: see ANNUAL_REVIEW.md, "Raised with
+    // Ben and declined". Stands within a couple of feet of each other give the variable
+    // no spread to discriminate on. Do not wire it into scoring without asking first.
     ...(p.type === 'stand' ? { terrain: p.terrain ?? null, safeWinds: p.safeWinds ?? [], height: p.height ?? null } : {}),
     ...(p.type === 'bedding' ? { terrain: p.terrain ?? null } : {}),
     createdAt: nowIso(),

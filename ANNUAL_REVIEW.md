@@ -84,6 +84,28 @@ Wind appears in exactly two places and does two different jobs: inside the preci
 factor as the documented rain-cancelling interaction, and in `src/wind.js` as a stand
 filter that never touches the movement score. Keep it that way.
 
+### Raised with Ben and declined
+
+A mid-build audit flagged these as genuine model gaps. Ben considered each and said no,
+with reasons that are specific to how he hunts this property. They are closed, not
+pending, so do not re-propose them as oversights. Each note says what would reopen it.
+
+- **Hunting pressure stays per-stand.** `lastHuntedByStand[s.id]` in `src/scoring.js`
+  means sitting one stand does not decay any other stand's score. The audit argued deer
+  respond to intrusion across the property rather than per-stand bookkeeping. Ben's
+  answer: he enters from various points, so a sit at one stand genuinely does not
+  disturb the approach to another. A property-wide term assumes one entry corridor, which
+  is wrong here. Reopens only if he starts entering from a single access point.
+- **Access routes stay unscored.** The geometry to detect walking past bedding in the
+  dark already exists, and the audit called that a known sit-killer. Ben declined. They
+  remain reference-only lines on the map, the same as game trails.
+- **Stand height stays unscored.** The field is stored and served but no scoring code
+  reads it, and that is correct here: every stand on this property sits 6-8 ft up, so the
+  variable has no spread to discriminate on. This is the same trap the old fixed proximity
+  thresholds fell into, from the other direction. The field is kept as metadata rather
+  than dropped, because a future tower stand at 20 ft would give it real variance and
+  reopen the question.
+
 ### Check the season dates and zone first, every year
 
 State wildlife agencies publish fresh season dates annually and redraw zones from time to
