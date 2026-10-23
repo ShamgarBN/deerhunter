@@ -20,13 +20,62 @@
     "reweight": "node src/cli.js reweight",
     "normals": "node src/cli.js normals",
     "test-discord": "node src/cli.js test-discord",
-    "backup": "node src/cli.js backup"
+    "backup": "node src/cli.js backup",
+    "app": "electron .",
+    "build:dmg": "node scripts/build-dmg.mjs",
+    "rebuild:node": "npm rebuild better-sqlite3"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^13.0.3",
     "express": "^4.21.2",
     "leaflet": "^1.9.4",
     "node-cron": "^3.0.3",
     "suncalc": "^1.9.0"
-  }
+  },
+  "main": "electron/main.js",
+  "build": {
+    "appId": "com.benniemann.deerhunter",
+    "productName": "DeerHunter",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "public/**/*",
+      "assets/**/*",
+      "package.json",
+      "config/config.json",
+      "config/scoring.json",
+      "config/map.example.json",
+      "!public/mockups*.html",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
+    "npmRebuild": true,
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.sports",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "identity": null
+    },
+    "dmg": {
+      "title": "DeerHunter"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "author": "Ben Niemann"
 }

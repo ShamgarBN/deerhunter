@@ -23,3 +23,14 @@ data/normals*.json
 
 # Backups of the sit log and fitted weights. Local by design: they hold your property.
 exports/
+
+# Desktop build artifacts. The .dmg is copied to the project root by build:dmg, which is
+# why the root copy is ignored too rather than only dist/.
+dist/
+*.dmg
+build/icon.iconset/
+build/icon-1024.png
+
+# Records the checkout a build came from, so a fresh install can offer to import from it.
+# Machine-specific, regenerated on every build.
+electron/build-info.json

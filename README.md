@@ -634,6 +634,57 @@ known scores, clearly labeled as stale, instead of an error page.
 
 ---
 
+## The desktop app
+
+```bash
+npm run build:dmg      # builds, then copies the .dmg to the project root
+npm run app            # run the dev build without packaging
+```
+
+A real macOS app: dock icon, menu-bar icon, and the dashboard in its own window. The
+server is not forked as a child process, it runs inside the Electron process. Forking
+would need a Node on the machine to fork, which is the opposite of standalone.
+
+**Closing the window does not quit it.** The reason this is an app rather than a browser
+tab is that the 3:20am refresh, the 7am alert check and the 3:40am backup only fire while
+something is running. Closing hides it to the menu bar; quitting is a deliberate choice
+from there. **Start at login** is in the same menu, and turning it on is what makes the
+schedule actually dependable on a laptop.
+
+The menu bar also has Refresh now, Check alerts now, Back up now, and Show data folder.
+
+### Where its data lives
+
+`~/Library/Application Support/DeerHunter`, not the app bundle. A packaged bundle is
+read-only and signed, so a config write inside it fails outright, and anything stored
+there would be destroyed by every reinstall.
+
+That means **the app and a checkout keep separate data**. On first run it offers to import
+your sit log, property map and fitted weights from the folder it was built from, and the
+menu bar can import from any folder later. The import copies, it does not move, so after
+importing you have two independent histories and should pick one home and stop using the
+other. Running both at once also means two schedulers against two databases and duplicate
+Discord alerts.
+
+### It is unsigned
+
+There is no Apple Developer certificate behind this build, so Gatekeeper will refuse a
+double-click with no obvious way forward. First launch: **right-click the app, choose
+Open**, then confirm. After that it opens normally.
+
+### The native module has two incompatible builds
+
+`better-sqlite3` is compiled C++, and Node and Electron have different ABIs. A binary
+built for one will not load in the other, which is why `npm run build:dmg` is a script
+rather than a plain `electron-builder` call: it rebuilds for Electron, packages, then
+rebuilds for Node, so the CLI still works afterwards. The restore runs even if packaging
+fails. If a CLI command ever reports a module version mismatch, `npm run rebuild:node`
+fixes it.
+
+This is also why the package is pinned at 13.x. Version 11 does not compile against
+Electron 45's V8: `v8::External::Value()` gained a required argument and the build fails
+with thirteen errors that say nothing about versions.
+
 ## Deploying on the Mac mini
 
 ```bash

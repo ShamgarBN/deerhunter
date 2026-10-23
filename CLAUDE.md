@@ -20,3 +20,18 @@ tool is written to be property-agnostic.
 
 Update `ANNUAL_REVIEW.md` alongside any change that answers or invalidates one of its
 questions. It is the handoff to next season's session and is the first thing to go stale.
+
+## The desktop build has two incompatible native binaries
+
+`better-sqlite3` is compiled C++ and Node and Electron have different ABIs, so one build
+cannot serve both. `npm run build:dmg` rebuilds for Electron, packages, then rebuilds for
+Node, and the restore runs even when packaging fails. Do not replace that script with a
+bare `electron-builder` call: it leaves the checkout unable to run any CLI command, and
+the error says nothing about why.
+
+Keep `better-sqlite3` at 13 or newer. Version 11 does not compile against Electron 45's
+V8 at all.
+
+`config.local.json` and `map.json` hold the webhook and the real stand coordinates and are
+excluded from the bundle by an explicit allow-list in `build.files`. Do not replace that
+list with a `config/**` glob.

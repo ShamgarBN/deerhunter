@@ -11,9 +11,25 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * ROOT is where the CODE lives. It stays pinned to the checkout or, in a packaged app, to
+ * the read-only bundle, because `public/` is served from it.
+ *
+ * Everything the tool WRITES is relocatable, and has to be: inside a packaged .app the
+ * bundle is read-only and signed, so a config write there fails outright. The desktop
+ * build points these at the user's Application Support directory before anything is
+ * imported. Run from a checkout with no overrides and the paths are exactly what they
+ * always were, so the CLI and the repo keep working unchanged.
+ */
 export const ROOT = path.resolve(__dirname, '..');
-export const CONFIG_DIR = path.join(ROOT, 'config');
-export const DATA_DIR = path.join(ROOT, 'data');
+export const CONFIG_DIR = process.env.DEERHUNTER_CONFIG_DIR || path.join(ROOT, 'config');
+export const DATA_DIR = process.env.DEERHUNTER_DATA_DIR || path.join(ROOT, 'data');
+export const EXPORT_DIR = process.env.DEERHUNTER_EXPORT_DIR || path.join(ROOT, 'exports');
+
+// The bundled defaults, always inside the code. A relocated CONFIG_DIR starts empty, and
+// first run seeds it from these rather than leaving the tool with no config at all.
+export const SEED_CONFIG_DIR = path.join(ROOT, 'config');
 
 const FILES = {
   config: path.join(CONFIG_DIR, 'config.json'),

@@ -6,6 +6,7 @@
 
 import express from 'express';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import fs from 'fs';
 import cron from 'node-cron';
 import { ROOT, loadConfig, loadScoring, loadMap, saveMap, saveConfig, saveScoring } from './config.js';
@@ -1109,11 +1110,34 @@ function startScheduler(cfg) {
     + (cfg.schedule.backupCron ? `, backup ${cfg.schedule.backupCron}` : ''));
 }
 
-const cfg = loadConfig();
-getDb();
-app.listen(cfg.server.port, cfg.server.host, () => {
-  console.log(`DeerHunter listening on http://${cfg.server.host}:${cfg.server.port}`);
-  console.log(`Property: ${cfg.property.name} (${cfg.property.county}) at ${cfg.property.lat}, ${cfg.property.lon}`);
-  console.log(`Season: ${cfg.season.start} to ${cfg.season.end}, peak rut ${loadScoring().peakRutDate}`);
-  startScheduler(cfg);
-});
+/**
+ * Start listening and arm the scheduler.
+ *
+ * Exported rather than run on import so the desktop build can await a real port before
+ * pointing a window at it. Port 0 asks the OS for a free one, which the packaged app uses:
+ * a fixed port would collide with a copy already running from the checkout.
+ */
+export function start({ port, host } = {}) {
+  const cfg = loadConfig();
+  getDb();
+  return new Promise((resolve, reject) => {
+    const srv = app.listen(port ?? cfg.server.port, host ?? cfg.server.host, () => {
+      const actual = srv.address().port;
+      console.log(`DeerHunter listening on http://${host ?? cfg.server.host}:${actual}`);
+      console.log(`Property: ${cfg.property.name} (${cfg.property.county}) at ${cfg.property.lat}, ${cfg.property.lon}`);
+      console.log(`Season: ${cfg.season.start} to ${cfg.season.end}, peak rut ${loadScoring().peakRutDate}`);
+      startScheduler(cfg);
+      resolve({ server: srv, port: actual, cfg });
+    });
+    srv.on('error', reject);
+  });
+}
+
+// Run directly (npm start, the launchd agent, the CLI) and it still starts itself, so
+// nothing outside the desktop build had to change.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  start().catch((err) => {
+    console.error('Failed to start:', err.message);
+    process.exit(1);
+  });
+}

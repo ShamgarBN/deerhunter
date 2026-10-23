@@ -12,11 +12,11 @@
 
 import fs from 'fs';
 import path from 'path';
-import { ROOT, loadConfig, loadScoring, loadMap } from './config.js';
+import { EXPORT_DIR, loadConfig, loadScoring, loadMap } from './config.js';
 import { getDb } from './db.js';
 import { nowIso } from './timeutil.js';
 
-export const BACKUP_DIR = path.join(ROOT, 'exports');
+export const BACKUP_DIR = EXPORT_DIR;
 
 const SCHEMA_VERSION = 1;
 
