@@ -121,6 +121,19 @@ function migrate(d) {
       created_at    TEXT NOT NULL
     );
 
+    -- Every outbound webhook post, whatever sent it. Written in one place (discord.js
+    -- post()) so alerts, test messages and heartbeats all land here, which is what lets
+    -- the quiet-period check ask "has anything at all gone out lately" rather than only
+    -- knowing about score alerts.
+    CREATE TABLE IF NOT EXISTS webhook_log (
+      id       INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind     TEXT NOT NULL,     -- 'alert' | 'test' | 'heartbeat' | 'other'
+      detail   TEXT,
+      sent_at  TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_webhook_log_sent ON webhook_log(sent_at);
+
     -- Alert dedupe, so a high Saturday does not get announced every morning for a week.
     CREATE TABLE IF NOT EXISTS alerts_sent (
       key           TEXT PRIMARY KEY,  -- date|slot|kind
@@ -171,6 +184,18 @@ function migrate(d) {
   `);
 
   addColumns(d);
+  seedWebhookLog(d);
+}
+
+// A database that has been alerting for weeks already should not get a heartbeat the
+// moment this feature lands, so the log starts from the most recent alert it can find.
+// Runs once: after this the table is non-empty and the condition never holds again.
+function seedWebhookLog(d) {
+  const empty = d.prepare('SELECT COUNT(*) AS n FROM webhook_log').get().n === 0;
+  if (!empty) return;
+  const last = d.prepare('SELECT MAX(sent_at) AS t FROM alerts_sent').get()?.t;
+  if (!last) return;
+  d.prepare("INSERT INTO webhook_log (kind, detail, sent_at) VALUES ('alert', 'backfilled from alerts_sent', ?)").run(last);
 }
 
 // Additive migrations. SQLite has no "ADD COLUMN IF NOT EXISTS", so each is attempted and

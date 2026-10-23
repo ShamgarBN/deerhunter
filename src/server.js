@@ -886,6 +886,12 @@ app.post('/api/alerts/config', wrap((req, res) => {
   for (const k of ['buckThreshold', 'generalThreshold']) {
     if (next[k] != null) next[k] = Math.max(0, Math.min(10, +next[k]));
   }
+  // Nested object, so a shallow spread would drop the _comment and _daysNote that explain
+  // what the setting is for. Merge it, and keep the window somewhere sane.
+  if (req.body?.heartbeat) {
+    next.heartbeat = { ...cfg.alerts?.heartbeat, ...req.body.heartbeat };
+    if (next.heartbeat.days != null) next.heartbeat.days = Math.max(1, Math.min(90, Math.round(+next.heartbeat.days) || 7));
+  }
   delete next.scoreThreshold; // superseded by the per-score pair
   cfg.alerts = next;
   saveConfig(cfg);
@@ -902,6 +908,7 @@ app.post('/api/alerts/config', wrap((req, res) => {
 app.get('/api/alerts/preview', wrap((req, res) => {
   const cfg = loadConfig();
   const db = getDb();
+  const lastPost = db.prepare('SELECT kind, sent_at FROM webhook_log ORDER BY sent_at DESC LIMIT 1').get() ?? null;
   const rows = db.prepare('SELECT buck_score b, general_score g, confidence FROM scores').all();
   // Two scopes, because they answer different questions and conflating them misleads.
   //
@@ -934,6 +941,11 @@ app.get('/api/alerts/preview', wrap((req, res) => {
     forecastWindow: {
       buck: { threshold: bt, ...stat(forecastOnly.map((r) => r.b), bt) },
       general: { threshold: gt, ...stat(forecastOnly.map((r) => r.g), gt) },
+    },
+    lastPost: lastPost && {
+      kind: lastPost.kind,
+      sentAt: lastPost.sent_at,
+      daysAgo: +((Date.now() - Date.parse(lastPost.sent_at)) / 86400000).toFixed(1),
     },
     note: 'Choose a threshold against the whole season: that is the distribution you live with. The forecast-window figure is only what would fire today, and early in the season that is a fortnight of pre-rut.',
   });

@@ -183,6 +183,17 @@ export async function mount() {
         <div style="flex:0 0 150px"><label>Cooldown (hours)</label>
           <input type="number" id="al-cool" min="1" max="168" value="${al.alerts.cooldownHours ?? 20}"></div>
       </div>
+      <div class="row">
+        <label class="check" title="Silence from this tool is ambiguous: it means either nothing crossed your thresholds or nothing is running. A check-in on a quiet channel tells those apart, and one that stops arriving is the signal to restart the server.">
+          <input type="checkbox" id="al-hb" ${al.alerts.heartbeat?.enabled !== false ? 'checked' : ''}> Check in when quiet</label>
+        <div style="flex:0 0 150px"><label>After (days)</label>
+          <input type="number" id="al-hbdays" min="1" max="90" value="${al.alerts.heartbeat?.days ?? 7}"></div>
+        <div class="muted" style="font-size:12px;align-self:flex-end;padding-bottom:7px">
+          ${al.lastPost
+            ? `Last posted <b>${al.lastPost.daysAgo}d</b> ago (${esc(al.lastPost.kind)}).`
+            : 'Nothing posted yet.'}
+        </div>
+      </div>
       <div style="margin-top:11px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="btn primary" id="saveAlerts">Save</button>
         <button class="btn" id="checkAlerts">Check now</button>
@@ -277,6 +288,7 @@ export async function mount() {
         onlyWithinForecastWindow: $('#al-window').checked,
         onlyAvailableDays: $('#al-avail').checked,
         cooldownHours: +$('#al-cool').value || 20,
+        heartbeat: { enabled: $('#al-hb').checked, days: +$('#al-hbdays').value || 7 },
       }) });
       await mount();
     } catch (err) { $('#alertMsg').textContent = err.message; }

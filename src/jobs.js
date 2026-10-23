@@ -25,7 +25,7 @@ import { standVerdict, thermalNotes } from './wind.js';
 import { loadSeasons, strictnessOn, coveredDates } from './seasons.js';
 import { updateDrought } from './drought.js';
 import { calibrate } from './calibrate.js';
-import { sendAlerts, filterAlreadySent } from './discord.js';
+import { sendAlerts, filterAlreadySent, sendHeartbeat, daysSinceLastPost } from './discord.js';
 import { dateRange, todayLocal, addDays, nowIso, daysBetween } from './timeutil.js';
 
 // Last time each stand was hunted, derived from the sit log rather than stored on the
@@ -353,7 +353,57 @@ export async function refresh({ log = console.log } = {}) {
   writeScores();
   log(`Scored ${scored} slots across ${dates.length} days`);
 
-  return { scored, weather: { observed: nObs, forecast: nForecast, climatology: nClimo }, dates: dates.length };
+  const heartbeat = await maybeHeartbeat(cfg, { today, scored, log });
+
+  return { scored, weather: { observed: nObs, forecast: nForecast, climatology: nClimo }, dates: dates.length, heartbeat };
+}
+
+/**
+ * Post a check-in when the channel has been quiet too long.
+ *
+ * Hangs off refresh rather than the alert cron on purpose. Refresh is the job that proves
+ * the whole pipeline ran: if it fires, weather was fetched and slots were scored. A
+ * heartbeat on a timer alone could keep arriving from a process that had stopped doing
+ * any real work.
+ *
+ * Never throws. A refresh that scored the season successfully has done its job, and a
+ * Discord outage is not a reason to report it as failed.
+ */
+async function maybeHeartbeat(cfg, { today, scored, log }) {
+  const hb = cfg.alerts?.heartbeat ?? {};
+  // Say why on every path. A check that goes quiet without explaining itself is how the
+  // stale alert threshold survived a month: nothing was wrong, nothing was visible either.
+  if (hb.enabled === false) { log('Heartbeat: disabled in config.'); return { skipped: 'heartbeat disabled' }; }
+  if (!cfg.discord?.enabled) { log('Heartbeat: Discord disabled, nothing to post to.'); return { skipped: 'discord disabled' }; }
+
+  const days = hb.days ?? 7;
+  const quiet = daysSinceLastPost();
+  if (quiet != null && quiet < days) {
+    log(`Heartbeat: not due, last post was ${quiet.toFixed(1)}d ago and the window is ${days}d.`);
+    return { skipped: `last post was ${quiet.toFixed(1)}d ago, under the ${days}d window` };
+  }
+
+  // The best slot ahead, so the message carries something worth reading. Deliberately the
+  // same window the alerts use, so "best ahead" never names a day alerts would ignore.
+  const horizon = cfg.alerts?.onlyWithinForecastWindow
+    ? cfg.forecast.forecastConfidenceDays
+    : cfg.forecast.extendedOutlookDays;
+  const best = getDb().prepare(`
+    SELECT date, slot, buck_score AS buckScore, general_score AS generalScore
+      FROM scores
+     WHERE date >= ? AND date <= ? AND date >= ? AND date <= ?
+     ORDER BY buck_score DESC LIMIT 1
+  `).get(today, addDays(today, horizon), cfg.season.start, cfg.season.end) ?? null;
+
+  try {
+    const r = await sendHeartbeat(cfg, { quietDays: quiet, best, scored });
+    if (r?.skipped) { log(`Heartbeat not sent: ${r.skipped}`); return r; }
+    log(`Heartbeat posted (channel quiet ${quiet == null ? 'since setup' : `${quiet.toFixed(1)} days`}).`);
+    return { sent: true, quietDays: quiet };
+  } catch (err) {
+    log(`Heartbeat failed (${err.message}); refresh itself was fine.`);
+    return { error: err.message };
+  }
 }
 
 export async function checkAlerts({ log = console.log, force = false } = {}) {

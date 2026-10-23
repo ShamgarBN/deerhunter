@@ -49,7 +49,13 @@
     "alertOnGeneralScore": true,
     "onlyAvailableDays": false,
     "_availableNote": "true = only alert on days marked available on the Season tab. Useful once your PTO is planned; noisy before that.",
-    "cooldownHours": 20
+    "cooldownHours": 20,
+    "heartbeat": {
+      "_comment": "A check-in posted by the refresh job when the channel has gone quiet. Silence from this tool is ambiguous: it means either nothing crossed your thresholds or nothing is running. The tool is a hand-started process, so that second case is real. A message arriving says the refresh ran and the webhook works; one that stops arriving is the signal to restart it. Set enabled to false to turn it off.",
+      "enabled": true,
+      "days": 7,
+      "_daysNote": "Post only if nothing at all has gone out in this many days, counting hunt alerts and test messages as well as previous heartbeats. A real alert resets the clock, so an active week produces no extra noise."
+    }
   },
   "discord": {
     "enabled": true,

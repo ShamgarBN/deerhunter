@@ -480,9 +480,30 @@ should choose against: that's the distribution you live with. **In the forecast 
 now** is only what would fire today, and in late October that's a fortnight of pre-rut
 that says nothing about the second week of November.
 
+### The quiet check-in
+
+Silence from a threshold alert is ambiguous. It means either nothing crossed the bar, or
+nothing is running. The tool is an ordinary process on a machine that sleeps and reboots,
+so the second case is real, and it fails exactly the way a quiet week looks.
+
+So the **refresh** job posts a check-in when the channel has gone quiet, seven days by
+default. It carries the best slot it can see, which keeps it worth opening rather than
+pure noise. A real alert, a test message or a previous check-in all reset the clock, so an
+active week produces nothing extra.
+
+It hangs off refresh rather than the alert job deliberately. Refresh is what proves the
+whole pipeline ran: if it fires, weather was fetched and the season was scored. A
+heartbeat on a bare timer could keep arriving from a process that had stopped doing any
+real work.
+
+Read it the other way round and it is a liveness check: **if the check-ins stop, the tool
+stopped**. Both halves are in the Model tab next to the thresholds, along with when the
+webhook last fired.
+
 ```bash
 npm run test-discord   # connectivity check
 npm run alert          # check thresholds now
+npm run refresh        # also posts the check-in if the channel has been quiet
 ```
 
 ---
