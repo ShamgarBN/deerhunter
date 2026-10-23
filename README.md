@@ -580,3 +580,7 @@ No ballistics or wind-drift calculator — "windage" here means wind's effect on
 scent, not a shooting tool. No auth, no multi-user. No GIS or elevation modeling; the
 property is under 100 acres and terrain tags cover what's needed. No native mobile app;
 the Tailscale-reachable dashboard covers phone access.
+
+No trail-camera ingestion. It was built once and taken back out at the owner's request,
+who tracks camera data outside the tool and preferred it that way. The gap is deliberate,
+so treat a proposal to add it as a scope change to raise rather than an omission to fix.

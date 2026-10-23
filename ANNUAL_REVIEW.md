@@ -70,6 +70,15 @@ at a glance and are not:
 - **The rut curve peaks during chasing, not at the peak breeding date.** Lockdown drops
   it. That is real and it is the whole reason the curve is a table of day-offsets rather
   than a bell curve. Do not "fix" it to peak at day 0.
+- **The proximity curves are fitted to this property, not chosen.** `proximityCurves` in
+  `config/scoring.json` keeps a `fittedFrom` list of the real stand-to-feature distances
+  each curve came from. The numbers look arbitrary and are not. A fixed threshold cannot
+  discriminate when every stand lands on one side of it, which is exactly what the
+  original 60 yd food and 80 yd water guesses did: two water sources 13 and 38 yd out
+  both scored a flat +1. Re-run `npm run score -- --calibrate` after the map changes
+  instead of hand-editing them. The fit declines to run with fewer than two stands, or
+  when stands sit within 40 yd of each other, where stretching the curve would invent a
+  distinction out of noise.
 
 Wind appears in exactly two places and does two different jobs: inside the precipitation
 factor as the documented rain-cancelling interaction, and in `src/wind.js` as a stand
@@ -124,12 +133,18 @@ predicted before running the reweighting pass.
 - Which stands did he actually sit, and did the scent-safety verdicts match what happened?
   A stand where the geometry says unsafe but he has never been busted usually means a
   bedding marker is in the wrong place on the map.
-- Is the drought over? `config/config.json` has `drought.severity`, and setting it to 0
-  in a normal-rainfall year is the correct move, not a regression. Water stops being a
-  limiting resource in the Piedmont most years, and the model should reflect that.
-- Is the alert threshold right? It ships at 7.5 and was never calibrated against real
-  score distributions. After a season there is enough history to set it to roughly the
-  top 10-15% of slots.
+- Is the drought over? Severity updates itself from the US Drought Monitor on every
+  refresh, so the question is no longer what to set it to, it is whether to trust it.
+  Check `drought.mode`, and `drought.asOf` to confirm a refresh actually landed. USDM
+  reads the whole county, area-weighted across categories rather than taking the worst
+  one present. If Ben knows his own water better than a county-level map does,
+  `mode: "manual"` pins his number and still logs what USDM would have said.
+- Do the alert thresholds still catch the right slice? They ship split, 8.5 buck and 7.5
+  deer, because one cut-off cannot serve two differently-shaped distributions: on this
+  property 7.5 caught 17% of buck slots but 40% of general ones. Both are settable from
+  the Model tab, which reports the hit rate two ways. Judge against the whole-season
+  figure, not the forecast-window one. In October the forecast reaches only pre-rut, and
+  tuning to that number sets the threshold far too low for November.
 
 ### Verify before trusting
 
@@ -144,11 +159,12 @@ re-checked:
 | NOAA daily normals | `ncei.noaa.gov/access/services/data/v1` dataset `normals-daily` | optional US station normals |
 | Esri World Imagery tiles | `services.arcgisonline.com/.../World_Imagery` | keyless, native to z19 |
 | USGS imagery + topo tiles | `basemap.nationalmap.gov/arcgis/rest/services/...` | keyless, native only to **z16** here; z17+ returns 404 |
+| USDM county statistics | `usdmdataservices.unl.edu/api/CountyStatistics/...` | keyless, weekly area-percent by category |
+| suncalc | npm `suncalc` 1.9.0 | sun times and moon illumination |
 
 Re-check the USGS zoom limits if the map looks blank when zoomed in. Each layer sets
 `maxNativeZoom` in `public/map.js` so Leaflet upscales rather than requesting tiles that
 do not exist; if USGS extends coverage, raising that number sharpens the layer.
-| suncalc | npm `suncalc` 1.9.0 | sun times and moon illumination |
 
 If a source dies, the fallbacks already exist: scoring degrades to climatology when the
 forecast is unavailable, and the map has four interchangeable basemaps.
