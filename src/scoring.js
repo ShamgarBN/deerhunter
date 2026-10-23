@@ -345,14 +345,3 @@ export function scoreSlot({ date, slot, wx, cfg, scoring, map, lastHuntedByStand
     },
   };
 }
-
-// Normalized effect values only, for the sit-log snapshot. This is what reweighting
-// reads back months later, so it stores the effects rather than the raw weather:
-// weights change, and a stored effect stays comparable across a weight change.
-export function snapshotFactors(scored) {
-  const out = {};
-  for (const [k, v] of Object.entries(scored.buck.contributions)) out[k] = v.effect;
-  out._rutOffset = scored.rut.offset;
-  out._rutPhase = scored.rut.phase;
-  return out;
-}

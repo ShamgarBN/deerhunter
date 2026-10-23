@@ -6,7 +6,7 @@
 // a live one.
 
 import { $, $$, esc, api, net, compass, fmtScore, collapsible, wireCollapsibles, isOpen, rememberOpen,
-  CONFIDENCE_HELP, WIND_CONF_HELP, confTip } from '/util.js';
+  WIND_CONF_HELP, confTip } from '/util.js';
 import { ramp, stack, balanceWhenReady } from '/viz.js';
 
 let state = {};
@@ -270,7 +270,7 @@ function renderCalendar() {
 
     rows.push(`<tr class="${d.date === today ? 'today ' : ''}${d.date < today ? 'gone ' : ''}${d.available.AM || d.available.PM ? 'avail' : ''}" data-date="${d.date}">
       <td class="mono seasoncell" style="font-size:12px">
-        <i class="seasonstripe" style="background:${stripe}" title="${esc(seasonTitle)}"></i><span title="${esc(seasonTitle)}">${d.date.slice(5)}</span>${conf ? `<span class="conf help ${conf}" style="margin-left:5px" title="${esc(`${CONFIDENCE_HELP[conf]?.short ?? conf} — ${CONFIDENCE_HELP[conf]?.text ?? ''}`)}">${conf.slice(0, 4).toUpperCase()}</span>` : ''}</td>
+        <i class="seasonstripe" style="background:${stripe}" title="${esc(seasonTitle)}"></i><span title="${esc(seasonTitle)}">${d.date.slice(5)}</span>${conf ? `<span class="conf help ${conf}" style="margin-left:5px" title="${esc(confTip(conf))}">${conf.slice(0, 4).toUpperCase()}</span>` : ''}</td>
       <td class="wd ${isWeekend ? 'wk' : ''}">${wd}</td>
       <td>${am ? scoreCell(am.buckScore, am.generalScore) : ''}${huntedAM ? `<span class="huntdot ${huntedAM.sawDeer ? 'saw' : 'none'}" title="${huntedAM.sawDeer ? `saw ${huntedAM.deerCount}` : 'hunted, no deer'}"></span>` : ''}</td>
       <td>${pm ? scoreCell(pm.buckScore, pm.generalScore) : ''}${huntedPM ? `<span class="huntdot ${huntedPM.sawDeer ? 'saw' : 'none'}" title="${huntedPM.sawDeer ? `saw ${huntedPM.deerCount}` : 'hunted, no deer'}"></span>` : ''}</td>
@@ -423,7 +423,7 @@ async function renderNear(days = 7) {
     const a = slots[0];
     return `<div class="card">
       <h3>${a.weekday} ${date}
-        <span class="conf help ${a.confidence}" style="margin-left:7px" title="${esc(`${CONFIDENCE_HELP[a.confidence]?.short ?? a.confidence} — ${CONFIDENCE_HELP[a.confidence]?.text ?? ''}`)}">${a.confidence}</span>
+        <span class="conf help ${a.confidence}" style="margin-left:7px" title="${esc(confTip(a.confidence))}">${a.confidence}</span>
         <span class="muted" style="font-weight:400;font-size:12px;margin-left:7px">
           ${esc(a.rutPhase)} &middot; day ${a.rutOffset >= 0 ? '+' : ''}${a.rutOffset}
         </span>

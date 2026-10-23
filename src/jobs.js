@@ -14,12 +14,9 @@
 
 import { loadConfig, loadScoring, loadMap, saveConfig, saveScoring } from './config.js';
 import { getDb } from './db.js';
-import {
-  resolveGrid, fetchGridForecast, sampleForecast, fetchObservations,
-  nearestObservation, climatologyFor, normalFor,
-} from './nws.js';
-import { hourlySeries, aggregateWindow, windConfidence, fetchOpenMeteo } from './weather.js';
-import { sitWindow, slotTimes } from './astro.js';
+import { resolveGrid, fetchGridForecast, fetchObservations, nearestObservation, climatologyFor } from './nws.js';
+import { hourlySeries, aggregateWindow, windConfidence } from './weather.js';
+import { sitWindow } from './astro.js';
 import { scoreSlot } from './scoring.js';
 import { standVerdict, thermalNotes } from './wind.js';
 import { loadSeasons, strictnessOn, coveredDates } from './seasons.js';

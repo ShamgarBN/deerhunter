@@ -163,9 +163,6 @@ main{padding:18px;max-width:1240px;margin:0 auto}
 
 /* ---------- calendar ---------- */
 .trend{padding:13px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
-.phbands{display:flex;height:15px;gap:2px;margin-bottom:6px}
-.phbands div{border-radius:3px;font-family:var(--mono);font-size:8.5px;display:flex;align-items:center;
-  justify-content:center;color:#0d1008;font-weight:600;overflow:hidden;white-space:nowrap}
 .caltable{width:100%;border-collapse:collapse;font-size:13px}
 .caltable th{text-align:left;font-family:var(--mono);color:var(--dim);font-weight:400;font-size:9px;
   text-transform:uppercase;letter-spacing:1.6px;padding:8px 10px;border-bottom:1px solid var(--line);
@@ -240,12 +237,6 @@ main{padding:18px;max-width:1240px;margin:0 auto}
   border-radius:3px;text-transform:uppercase}
 .note{font-size:12px;color:var(--olive);margin-top:5px;line-height:1.55}
 .note.thermal{border-left:2px solid var(--amber);padding-left:8px;color:var(--amber)}
-.standgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:1px;background:var(--line)}
-.standcard{background:var(--panel);padding:15px 16px}
-.standcard .nm{font-family:var(--cond);font-size:23px;font-weight:700;line-height:1.1}
-.standcard .scores{display:flex;gap:16px;align-items:flex-start;margin-top:10px}
-.standcard .rowline{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;
-  color:var(--olive);padding:5px 0;border-bottom:1px solid #22271a}
 .caltable.matrix th{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
 .mcell{text-align:left;white-space:nowrap}
 .mcell.unsafe{opacity:.45}
@@ -373,8 +364,6 @@ details.coll .coll-body b{color:var(--bone)}
 .keyrow{display:grid;grid-template-columns:52px 1fr;gap:9px;align-items:start;margin:6px 0;
   font-size:12.5px;line-height:1.5}
 .keyrow .conf{justify-self:start}
-.hourchart{display:flex;align-items:flex-end;gap:2px;height:120px;padding:4px 0;border-bottom:1px solid var(--line)}
-
 @media (max-width:1000px){ .metrics{grid-template-columns:repeat(2,1fr)} .weekstrip{grid-template-columns:repeat(3,1fr)} }
 
 /* The seasons editor needs seven fields on a line. Below roughly 980px the date inputs

@@ -193,7 +193,3 @@ export function loadNormals() {
   }
   return null;
 }
-
-export function loadAll() {
-  return { config: loadConfig(), scoring: loadScoring(), map: loadMap() };
-}

@@ -74,12 +74,6 @@
     "host": "0.0.0.0",
     "_hostNote": "0.0.0.0 so the Tailscale interface can reach it from your phone. No auth by design: single hunter, private tailnet."
   },
-  "map": {
-    "defaultZoom": 16,
-    "maxZoom": 19,
-    "defaultLayer": "esri-imagery",
-    "_layerNote": "All four basemaps are keyless and were reachable on 2026-09-18. Esri caps out around z19 for this area; USGS Topo is the one with contour lines for terrain tagging."
-  },
   "scent": {
     "safeAngleThresholdDeg": 115,
     "_thresholdNote": "Scent must blow at least this far off the bearing to a bedding or food point for the stand to read safe. 110-120 is the sane range; raise it to be stricter.",

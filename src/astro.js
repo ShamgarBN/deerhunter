@@ -7,7 +7,7 @@
 // effect from moon phase, and specifically none for the solunar overhead/underfoot theory.
 
 import SunCalc from 'suncalc';
-import { ymd, prettyTime, hhmm, MS_PER_DAY } from './timeutil.js';
+import { prettyTime, hhmm } from './timeutil.js';
 
 // suncalc phase: 0 = new, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter.
 // Named by range rather than nearest-anchor so a 46% waxing moon reads "waxing crescent"
@@ -116,17 +116,3 @@ export function minutesFromLightAnchor(dateStr, slot, timeStr, lat, lon, tz = 'A
   return mins - (ah * 60 + am);
 }
 
-// Kept for callers that still want a single representative instant, and used as the
-// fallback sampling point when no hourly series is available.
-export function slotTimes(dateStr, lat, lon) {
-  const am = sitWindow(dateStr, 'AM', lat, lon);
-  const pm = sitWindow(dateStr, 'PM', lat, lon);
-  return {
-    AM: new Date((am.start.getTime() + am.end.getTime()) / 2),
-    PM: new Date((pm.start.getTime() + pm.end.getTime()) / 2),
-    windowAM: am,
-    windowPM: pm,
-    sunrise: am.sunrise,
-    sunset: am.sunset,
-  };
-}

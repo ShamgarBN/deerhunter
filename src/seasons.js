@@ -83,26 +83,9 @@ export function loadSeasons(cfg) {
     .sort((a, b) => a.start.localeCompare(b.start));
 }
 
-export const enabledSeasons = (cfg) => loadSeasons(cfg).filter((s) => s.enabled);
-
 /** Every season open on a date, earliest-starting first. Seasons routinely overlap. */
 export function seasonsOn(date, seasons) {
   return seasons.filter((s) => date >= s.start && date <= s.end);
-}
-
-/**
- * The span the tool scores: the union of every enabled season.
- *
- * Union rather than the single widest season, because archery in September and gun in
- * November are both worth scoring and the gap between them is not.
- */
-export function scoringRange(seasons) {
-  const on = seasons.filter((s) => s.enabled);
-  if (!on.length) return null;
-  return {
-    start: on.reduce((a, s) => (s.start < a ? s.start : a), on[0].start),
-    end: on.reduce((a, s) => (s.end > a ? s.end : a), on[0].end),
-  };
 }
 
 /** Dates covered by at least one enabled season, so gaps between seasons are skipped. */
@@ -133,25 +116,3 @@ export function strictnessOn(date, seasons) {
   };
 }
 
-/**
- * Legacy shape migration.
- *
- * The first build carried `season` (one gun season) plus loose `archery` and
- * `blackpowder` sub-objects that nothing scored. Fold all three into the seasons array so
- * an existing install keeps working without anyone hand-editing config.
- */
-export function migrateLegacy(cfg) {
-  if (Array.isArray(cfg.seasons) && cfg.seasons.length) return null;
-  const old = cfg.season;
-  if (!old?.start) return null;
-
-  const out = [];
-  if (old.archery?.start) {
-    out.push(normalizeSeason({ label: 'Archery', weapon: 'archery', start: old.archery.start, end: old.archery.end, color: '#16c784' }, 0));
-  }
-  if (old.blackpowder?.start) {
-    out.push(normalizeSeason({ label: 'Blackpowder', weapon: 'muzzleloader', start: old.blackpowder.start, end: old.blackpowder.end, color: '#f0b429' }, 1));
-  }
-  out.push(normalizeSeason({ label: old.label || 'Gun', weapon: 'rifle', start: old.start, end: old.end, color: '#5ac8fa', notes: old.zone ? `Zone: ${old.zone}` : '' }, 2));
-  return out;
-}

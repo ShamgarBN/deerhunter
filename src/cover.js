@@ -21,7 +21,7 @@
 import fs from 'fs';
 import path from 'path';
 import { DATA_DIR } from './config.js';
-import { distanceYards, pointInRing } from './geo.js';
+import { pointInRing } from './geo.js';
 
 const WMS = 'https://www.mrlc.gov/geoserver/mrlc_display/wms';
 const LAYER = 'NLCD_2021_Land_Cover_L48';
