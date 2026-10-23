@@ -24,6 +24,10 @@ export async function mount() {
   const sn = await api('/api/seasons');
   const dr = await api('/api/drought');
   const al = await api('/api/alerts/preview');
+  // Both are graded against the sit log, so both are empty for a while. They never block
+  // the page: a grader that cannot run is not a reason to lose the weights panel.
+  const sk = await api('/api/skill').catch(() => null);
+  const bed = await api('/api/bedding/gaps').catch(() => null);
   const st = window.__dh.state;
 
   const factorRows = Object.entries(w.factors).map(([k, f]) => `
@@ -201,6 +205,61 @@ export async function mount() {
         <span class="muted" style="font-size:12px" id="alertMsg"></span>
       </div>
     </div>
+
+    ${sk ? `<div class="card">
+      <h3>Is the score working?
+        <span class="badge ${sk.general.skill.enough ? 'safe' : 'unknown'}" style="margin-left:7px">${sk.general.calibration.n} graded sits</span>
+      </h3>
+      <div class="muted" style="font-size:12px;margin-bottom:9px;line-height:1.55">
+        Graded against what you actually saw, leave-one-out, so nothing is scored on data it
+        was fitted to. A score is ordinal until this fills in: 6.8 beats 4.2 and that is all
+        it says. These turn it into a sighting rate.
+      </div>
+      ${['general', 'buck'].map((t) => {
+        const c = sk[t].calibration; const s2 = sk[t].skill;
+        return `<div style="margin-bottom:13px">
+          <div class="mono" style="font-size:10px;letter-spacing:1.6px;color:var(--dim);text-transform:uppercase;margin-bottom:5px">
+            ${t === 'buck' ? 'Buck sighted' : 'Any deer sighted'}</div>
+          ${c.enough && c.bins.length ? `<table class="data" style="margin-bottom:6px"><thead><tr>
+              <th>Predicted</th><th>Sits</th><th>Saw deer</th><th>Rate</th><th>95% range</th></tr></thead><tbody>
+            ${c.bins.map((b) => `<tr>
+              <td class="mono">${b.from}&ndash;${b.to}</td>
+              <td class="mono">${b.n}</td>
+              <td class="mono">${b.hits}</td>
+              <td class="mono"><b>${(b.rate * 100).toFixed(0)}%</b></td>
+              <td class="mono dim">${(b.low * 100).toFixed(0)}&ndash;${(b.high * 100).toFixed(0)}%</td>
+            </tr>`).join('')}
+          </tbody></table>
+          ${c.fit ? `<div class="muted" style="font-size:12px">${esc(c.fit.direction)}${c.table ? ` &middot; <span class="mono">${c.table.map((r) => `${r.score}&rarr;${(r.p * 100).toFixed(0)}%`).join('  ')}</span>` : ''}</div>` : ''}`
+            : `<div class="muted" style="font-size:12px">${esc(c.note ?? 'Not enough sits yet.')}</div>`}
+          <div class="${s2.model && s2.model.skillVsBaseRate < -0.05 ? 'banner warn' : 'muted'}" style="font-size:12px;margin-top:6px${s2.model ? '' : ';'}">
+            ${esc(s2.verdict)}
+            ${s2.model ? `<div class="mono dim" style="font-size:11px;margin-top:4px">
+              Brier: model ${s2.model.brier} &middot; season average ${s2.baseRate.brier}${s2.rutOnly ? ` &middot; rut curve alone ${s2.rutOnly.brier}` : ''} (lower is better)
+            </div>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    ${bed ? `<div class="card">
+      <h3>Bedding the map may be missing
+        ${bed.gaps.length ? `<span class="badge caution" style="margin-left:7px">${bed.gaps.length}</span>` : ''}
+      </h3>
+      <div class="muted" style="font-size:12px;margin-bottom:9px;line-height:1.55">
+        Every scent verdict is measured against your bedding markers, so a thicket you never
+        marked is a stand this tool will call safe while you get winded from it. The sighting
+        log is the only input that does not come from the map, which makes it the only thing
+        that can catch one. Evening sightings point back the way deer came; morning sightings
+        point the way they were going.
+      </div>
+      <div class="muted" style="font-size:12px;margin-bottom:8px">${esc(bed.verdict)}</div>
+      ${bed.gaps.map((g) => `<div class="banner warn" style="margin-bottom:6px">
+        <b>${esc(g.compass)} off ${esc(g.standLabel)}</b> &mdash; ${g.sightings} sightings, ${g.deer} deer${g.bucks ? `, ${g.bucks} buck` : ''}, nothing marked that way.
+        <div class="mono dim" style="font-size:11px;margin-top:3px">Walk about ${g.projectedYards} yd on ${g.bearing}&deg; &middot; ${g.lookAt.lat.toFixed(5)}, ${g.lookAt.lon.toFixed(5)} &middot; ${esc(g.dates.join(', '))}</div>
+      </div>`).join('')}
+      ${bed.confirmed.map((c) => `<div class="kv"><span>${esc(c.compass)} off ${esc(c.standLabel)} (${c.sightings} sightings)</span><span>matches ${esc(c.matchedLabel)}, ${c.matchedOffDeg}&deg; off</span></div>`).join('')}
+    </div>` : ''}
 
     <div class="card">
       <h3>Scale calibration</h3>

@@ -77,7 +77,7 @@ function precipitationEffect(wx, scoring) {
 // Days since this stand was last hunted. Approaches +1 asymptotically, so the
 // difference between 14 and 21 days off is small, which matches how pattern-avoidance
 // actually decays.
-function pressureEffect(daysSince, recoveryDays = 3) {
+export function pressureEffect(daysSince, recoveryDays = 3) {
   // Never hunted caps at +0.85 rather than +1. At the season opener every stand is
   // untouched, so a full +1 would hand every slot in November a constant bonus that
   // discriminates nothing.
@@ -95,7 +95,7 @@ function pressureEffect(daysSince, recoveryDays = 3) {
 }
 
 // Distance-to-resource falloff. near => +1, far => -1, with the midpoint at zero.
-function proximityEffect(distYards, near, mid, far) {
+export function proximityEffect(distYards, near, mid, far) {
   if (distYards == null) return { effect: 0, detail: { distanceYards: null, unmarked: true } };
   let effect;
   if (distYards <= near) effect = 1;
@@ -121,7 +121,7 @@ function tempEffect(tempF, normalF) {
 // is the question hunters actually act on: a 45F morning can be both above normal and
 // fifteen degrees colder than yesterday, and those two facts pull the score in opposite
 // directions. A drop reads positive.
-function tempChangeEffect(deltaF, scoring) {
+export function tempChangeEffect(deltaF, scoring) {
   if (deltaF == null) return { effect: 0, detail: { deltaF: null, available: false } };
   const full = scoring.weatherDerivatives?.tempDropFullEffectF ?? 15;
   return {
@@ -139,7 +139,7 @@ function tempChangeEffect(deltaF, scoring) {
 // series, which is unitless. The research caution still stands - pressure largely tracks
 // temperature rather than acting on its own - so the weight stays modest and this will
 // partly double-count the temperature-change factor until reweighting separates them.
-function pressureTrendEffect(deltaHpa, scoring) {
+export function pressureTrendEffect(deltaHpa, scoring) {
   if (deltaHpa == null) return { effect: 0, detail: { deltaHpa: null, available: false } };
   const full = scoring.weatherDerivatives?.pressureDropFullEffectHpa ?? 6;
   return {
@@ -178,7 +178,7 @@ function pressureTrendEffect(deltaHpa, scoring) {
  * half rests mostly on hunter consensus, and it necessarily overlaps the two factors it
  * was built from. Let the sit log settle how much of the credit belongs here.
  */
-function frontalEffect(wx, scoring) {
+export function frontalEffect(wx, scoring) {
   const f = scoring.frontal ?? {};
   const dT = wx.tempChange24h;
   const dP = wx.pressureChange24h;

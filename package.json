@@ -11,6 +11,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "test": "node --test",
     "setup": "node src/cli.js setup",
     "start": "node src/server.js",
     "refresh": "node src/cli.js refresh",

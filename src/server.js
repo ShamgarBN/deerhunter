@@ -22,6 +22,8 @@ import { ringCentroid, ringAcres, pathMidpoint, pathLengthYards, distanceToFeatu
 import { coverForStand, coverForPoints, manualCoverAt, describe, sampleNlcd, wmsInfo, NLCD_CLASSES } from './cover.js';
 import { testWebhook } from './discord.js';
 import { writeBackup, latestBackup, BACKUP_DIR } from './backup.js';
+import { beddingGaps } from './bedding.js';
+import { calibration, skill } from './skill.js';
 import { todayLocal, addDays, dateRange, nowIso, weekday, daysBetween } from './timeutil.js';
 
 const app = express();
@@ -914,6 +916,32 @@ app.post('/api/drought', wrap((req, res) => {
   };
   saveConfig(cfg);
   res.json({ drought: loadConfig().drought, note: 'Pinned to manual. USDM is still checked each refresh and logged, but will not overwrite this.' });
+}));
+
+// --- grading the model against what actually happened ----------------------
+
+/**
+ * Both halves of the self-assessment in one call, for both targets.
+ *
+ * Buck and deer-activity are scored separately by the model, so they are graded
+ * separately: a tool that is good at one and useless at the other would otherwise average
+ * out to looking mediocre at both and tell you nothing about which to fix.
+ */
+app.get('/api/skill', wrap((req, res) => {
+  res.json({
+    general: { calibration: calibration({ target: 'general' }), skill: skill({ target: 'general' }) },
+    buck: { calibration: calibration({ target: 'buck' }), skill: skill({ target: 'buck' }) },
+    note: 'Fitted and graded leave-one-out, so nothing is scored on data it was fitted to. Early-season numbers are dominated by sample size, not by the model.',
+  });
+}));
+
+app.get('/api/bedding/gaps', wrap((req, res) => {
+  const tolerance = req.query.tolerance ? +req.query.tolerance : undefined;
+  const min = req.query.min ? +req.query.min : undefined;
+  res.json(beddingGaps({
+    toleranceDeg: Number.isFinite(tolerance) ? tolerance : undefined,
+    minSightings: Number.isFinite(min) ? min : undefined,
+  }));
 }));
 
 // --- backups ---------------------------------------------------------------

@@ -431,6 +431,86 @@ and leaves both alone rather than guessing which one you meant.
 
 ---
 
+## Is the score working?
+
+A score is ordinal until something grades it. "6.8" beats "4.2" and that is the entire
+claim. The Model tab turns it into a sighting rate by comparing what the tool predicted
+against what the sit log says actually happened.
+
+Two things are reported, separately for buck and for any deer, because the model scores
+them separately and a tool that is good at one and useless at the other would otherwise
+average out to looking mediocre at both:
+
+**Calibration.** Sits are binned by predicted score and each bin shows the observed
+sighting rate with a 95% range. The range is a Wilson interval, not the textbook normal
+one, which at these sample sizes would report three-for-three as a flat 100% with no
+uncertainty at all. A fitted curve then reads off a probability at each score.
+
+**Skill.** Does the score beat doing almost nothing? Two baselines, both chosen to be
+unflattering: always predicting the season's average sighting rate, and the same fit using
+only the rut day-offset, which needs no weather at all. If the full model cannot beat a
+calendar, the weather and stand factors are not earning their place yet, and it says so in
+those words.
+
+Everything is scored **leave-one-out**: each sit is predicted by a model refitted without
+it. Grading a fit on the sits it was fitted to measures memorisation, and at a dozen sits
+it measures almost nothing else. The logistic fit is ridge-penalised for the same reason:
+with few sits it is entirely possible for every sighting to sit above every blank, and an
+unpenalised fit answers that with probabilities of 0 and 1, which is the most confident
+possible way to be wrong.
+
+Both refuse to run early rather than printing a number: roughly 8 sits before a rate, 12
+before a skill score. "Not enough data" and "no effect found" look identical in a table,
+so the tool says which one it is.
+
+## Bedding the map may be missing
+
+Every scent verdict is measured against your bedding markers. A thicket you never marked
+is a stand this tool will cheerfully call safe while you get winded from it every time,
+and nothing else in the tool can catch that, because every other input is downstream of
+the same markers.
+
+The sighting log can, because it is the only input that does not come from the map. Each
+sighting with a heading implies a direction bedding lies in, and the two slots are mirror
+images: in the evening deer are leaving bed for food, so bedding is back the way they
+came; in the morning they are heading back to it. Directions that keep producing deer with
+nothing marked behind them get flagged, with a coordinate to walk to.
+
+The bearing from the stand to the animal is deliberately **not** used for this. It says
+where the deer was standing, which is a point on the route and says nothing about which
+end of it the bedding is at.
+
+## Backups
+
+```bash
+npm run backup                 # now
+npm run backup -- --keep 60    # and keep more of them
+```
+
+The sit log, the conditions frozen at log time, the sightings, and weights that have
+drifted from their research priors toward this property are the whole point of the tool,
+and they live in one SQLite file on one machine. A timestamped JSON export plus
+spreadsheet CSVs are written nightly at 3:40, and the last 30 are kept.
+
+Retention is by count rather than age, so a tool left alone for a month still has history
+when it comes back instead of having quietly expired everything. Weather and scores are
+left out because a refresh rebuilds both. **The Discord webhook is redacted**, with the key
+left in place so a restore makes obvious what has to be pasted back: a backup is a file
+that gets copied to other disks and attached to messages.
+
+## Tests
+
+```bash
+npm test
+```
+
+Node's built-in runner, no dependency. The suite is deliberately narrow: it covers the
+arithmetic where a wrong answer still looks reasonable on screen. A scent bearing off by a
+sign, a probability that reads 0.84 when it should read 0.48, a front factor firing on the
+wrong half of a weather system, bedding inferred on the wrong end of a deer's route.
+Nobody catches those by looking at the dashboard. Things that fail loudly are not covered,
+because they get noticed anyway.
+
 ## Data sources
 
 All free, all keyless, all verified working on 2026-09-18.

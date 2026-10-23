@@ -165,6 +165,29 @@ only data here that a reweighting pass cannot use and cannot reconstruct:
 Do not add a scoring factor from it unilaterally. If it suggests one, raise it with Ben
 and put it through the reweighting system with a stated prior, the same as any other.
 
+### Start with whether the model works at all
+
+`npm start` then the Model tab, or `GET /api/skill`. This is new as of the 2026-27 season
+and it should be the first thing the review looks at, because it reframes everything else:
+there is no point retuning weights on a model that is not beating a calendar.
+
+It reports, separately for buck and for any deer, the observed sighting rate by predicted
+score and a leave-one-out Brier against two baselines: the season's average sighting rate,
+and a fit on rut day-offset alone. Read it in this order:
+
+1. **Is the fitted direction positive?** A negative slope means higher scores went with
+   FEWER sightings on this property. That is a finding, not a bug to paper over, and it
+   should stop the review until it is understood.
+2. **Does the model beat the base rate?** If not, the factors are not yet earning their
+   place and reweighting is the response, not a new factor.
+3. **Does it beat the rut curve alone?** If the rut curve alone wins, everything else in
+   the model is decoration so far. Say that to Ben plainly.
+
+Both grading functions refuse to run below roughly 8 and 12 sits. If they are still
+refusing, the honest report is that a season did not produce enough logged sits to grade
+the model, and the most valuable change for next season is making logging easier rather
+than touching any weight.
+
 ### Comparing predictions against what happened
 
 `fetchArchive` in `src/weather.js` pulls real hourly weather (including barometric
