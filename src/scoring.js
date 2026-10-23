@@ -77,14 +77,21 @@ function precipitationEffect(wx, scoring) {
 // Days since this stand was last hunted. Approaches +1 asymptotically, so the
 // difference between 14 and 21 days off is small, which matches how pattern-avoidance
 // actually decays.
-function pressureEffect(daysSince) {
+function pressureEffect(daysSince, recoveryDays = 3) {
   // Never hunted caps at +0.85 rather than +1. At the season opener every stand is
   // untouched, so a full +1 would hand every slot in November a constant bonus that
-  // discriminates nothing. The curve crosses zero at about 4 days rest, which is the
-  // rough point where a stand stops feeling recently disturbed.
+  // discriminates nothing.
+  //
+  // recoveryDays is the half-recovery point: the rest after which a stand has given back
+  // half the penalty, i.e. where the curve crosses zero. An Oklahoma GPS study had bucks
+  // cutting movement as soon as hunters arrived, staying down through the hunt, and
+  // beginning to recover about three days later, so that is the default. The time
+  // constant is derived from it rather than written as a magic divisor, so changing the
+  // number here moves the curve the way you would expect.
   if (daysSince == null) return { effect: 0.85, detail: { daysSince: null, neverHunted: true } };
-  const effect = 2 * (1 - Math.exp(-daysSince / 6)) - 1;
-  return { effect: clamp(effect, -1, 1), detail: { daysSince, neverHunted: false } };
+  const tau = Math.max(0.25, recoveryDays) / Math.LN2;
+  const effect = 2 * (1 - Math.exp(-daysSince / tau)) - 1;
+  return { effect: clamp(effect, -1, 1), detail: { daysSince, neverHunted: false, recoveryDays } };
 }
 
 // Distance-to-resource falloff. near => +1, far => -1, with the midpoint at zero.
@@ -142,6 +149,69 @@ function pressureTrendEffect(deltaHpa, scoring) {
       deltaInHg: +(deltaHpa * 0.02953).toFixed(3),
       direction: deltaHpa <= -1 ? 'falling' : deltaHpa >= 1 ? 'rising' : 'steady',
       available: true,
+    },
+  };
+}
+
+/**
+ * Frontal passage: the conjunction, not the ingredients.
+ *
+ * tempChange24h and pressureTrend each see one half of a front and neither sees a front.
+ * Worse, they disagree about the state hunters actually rate most highly: the clear, cold
+ * morning after a low has moved through has a RISING barometer, which pressureTrend scores
+ * as a negative. This factor exists to name that state directly rather than leaving it to
+ * be cancelled out by two factors arguing.
+ *
+ * Two shapes are recognised:
+ *   post-frontal  colder than yesterday AND barometer recovering AND sky clearing
+ *   pre-frontal   barometer dropping hard while it is still mild (feeding ahead of weather)
+ *
+ * The post-frontal case requires BOTH the cold and the recovery, multiplied rather than
+ * added, so a merely cold day or a merely rising barometer scores nothing. That is the
+ * whole point of a composite: either ingredient alone is already covered elsewhere.
+ *
+ * This factor is ONE-SIDED, 0 to 1, and never goes negative. The absence of a front is
+ * ordinary weather, not a penalty, and there is no such thing as an anti-front. Do not
+ * "fix" it to be symmetric like the others. Calibration absorbs the baseline shift.
+ *
+ * The prior is deliberately modest and flagged as a reweight candidate: the pre-frontal
+ * half rests mostly on hunter consensus, and it necessarily overlaps the two factors it
+ * was built from. Let the sit log settle how much of the credit belongs here.
+ */
+function frontalEffect(wx, scoring) {
+  const f = scoring.frontal ?? {};
+  const dT = wx.tempChange24h;
+  const dP = wx.pressureChange24h;
+  if (dT == null || dP == null) return { effect: 0, detail: { available: false, shape: 'unknown' } };
+
+  const dropF = f.tempDropFullF ?? 12;
+  const riseHpa = f.pressureRiseFullHpa ?? 5;
+  const fallHpa = f.pressureFallFullHpa ?? 5;
+
+  const cold = clamp(-dT / dropF, 0, 1);
+  const rising = clamp(dP / riseHpa, 0, 1);
+  // An unknown sky is treated as half-clear rather than as a reason to zero the factor:
+  // past the forecast horizon sky cover is missing for every slot, and the temperature
+  // and pressure halves are still real.
+  const clearing = wx.skyCover == null ? 0.5 : clamp((60 - wx.skyCover) / 60, 0, 1);
+  const post = cold * rising * (0.6 + 0.4 * clearing);
+
+  const falling = clamp(-dP / fallHpa, 0, 1);
+  const stillMild = clamp(1 - Math.abs(dT) / dropF, 0, 1);
+  const pre = (f.preFrontalCeiling ?? 0.45) * falling * stillMild;
+
+  const effect = clamp(Math.max(post, pre), 0, 1);
+  const shape = effect < 0.05 ? 'none' : post >= pre ? 'post-frontal' : 'pre-frontal';
+  return {
+    effect,
+    detail: {
+      available: true,
+      shape,
+      tempChangeF: +dT.toFixed(1),
+      pressureChangeHpa: +dP.toFixed(2),
+      skyCover: wx.skyCover == null ? null : Math.round(wx.skyCover),
+      post: +post.toFixed(3),
+      pre: +pre.toFixed(3),
     },
   };
 }
@@ -215,6 +285,7 @@ export function scoreSlot({ date, slot, wx, cfg, scoring, map, lastHuntedByStand
     tempDeparture: tempEffect(wx.tempF, wx.tempNormalF),
     tempChange24h: tempChangeEffect(wx.tempChange24h, scoring),
     pressureTrend: pressureTrendEffect(wx.pressureChange24h, scoring),
+    frontalPassage: frontalEffect(wx, scoring),
     cloudCover: cloudEffect(wx.skyCover),
     moonIllumination: moonEffect(astro.moon.illumination),
   };
@@ -230,7 +301,7 @@ export function scoreSlot({ date, slot, wx, cfg, scoring, map, lastHuntedByStand
   const wc = scoring.proximityCurves?.water ?? { near: 80, mid: 350, far: 900 };
   const buildFactors = (foodDist, waterDist, daysSince) => ({
     ...shared,
-    huntingPressure: pressureEffect(daysSince),
+    huntingPressure: pressureEffect(daysSince, scoring.pressureRecoveryDays ?? 3),
     foodProximity: proximityEffect(foodDist, fc.near, fc.mid, fc.far),
     waterProximity: proximityEffect(waterDist, wc.near, wc.mid, wc.far),
   });

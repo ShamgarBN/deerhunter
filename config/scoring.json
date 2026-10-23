@@ -2,6 +2,15 @@
   "_comment": "Every number that moves a score lives in this file. prior_weight is the research-grounded default and NEVER changes; current_weight is what scoring actually uses and drifts as src/reweight.js learns from the sit log. To reset the model, copy prior back over current (npm run reweight -- --reset).",
   "_methodology": "This model is grounded in GPS-collar research (Auburn, Penn State, Mississippi State) rather than the popular hunting-app consensus. That is a deliberate choice by Ben, not an oversight. The visible consequences: moon phase carries ZERO weight, cold fronts get no dedicated factor beyond a modest temperature term, and rain is modeled as an interaction with wind speed rather than on its own. A future reviewer should not 'fix' these back toward folklore without new evidence. See ANNUAL_REVIEW.md.",
   "peakRutDate": "2026-11-18",
+  "pressureRecoveryDays": 3,
+  "_pressureRecoveryNote": "Days of rest after which a hunted stand has given back half its pressure penalty, i.e. where the curve crosses zero. An Oklahoma GPS study had bucks cutting movement when hunters arrived, staying down through the hunt, and starting to recover about three days later. Raise it if your deer seem to stay spooky longer than that; the whole curve stretches with it.",
+  "frontal": {
+    "_comment": "Shape of the frontal-passage factor. tempDropFullF is the 24h temperature fall that counts as a full-strength front; pressureRiseFullHpa is the 24h rise that says the low has cleared; preFrontalCeiling caps the feeding-ahead case well below the post-frontal one.",
+    "tempDropFullF": 12,
+    "pressureRiseFullHpa": 5,
+    "pressureFallFullHpa": 5,
+    "preFrontalCeiling": 0.45
+  },
   "_peakRutNote": "Single source of truth for the entire rut curve. Regional estimates for Central NC peak breeding span roughly Nov 15-20 and vary by county and year. Ben had no contrary read from past seasons at kickoff (2026-09-18) and chose to log a season before shifting it. Change this one value and the whole curve moves with it.",
   "rutCurve": {
     "_comment": "Day offsets from peakRutDate mapped to a base buck score before any weather/pressure modifiers. Linearly interpolated between anchors. This is a lockdown-aware curve, not a bell curve: it peaks during CHASING (-7 to -2) and dips at peak breeding, because dominant bucks paired with an estrous doe go quiet for a day or two. Raw sightings drop right when 'the rut is peaking'.",
@@ -344,6 +353,21 @@
       "reweightCandidate": true,
       "note": "Weight raised modestly from 0.25 now that the input is real rather than absent. The research position stands: pressure largely tracks temperature rather than acting independently, so this should not be leaned on and will partly double-count tempChange24h. Reweighting can separate them once there is data, since the two do diverge - a cold front with a flat barometer happens."
     },
+    "frontalPassage": {
+      "label": "Frontal passage",
+      "buck": {
+        "prior": 0.6,
+        "current": 0.6
+      },
+      "general": {
+        "prior": 0.45,
+        "current": 0.45
+      },
+      "research": "The conjunction of a cold drop and a recovering barometer, which is the clear cold morning after a low moves through. Scored separately because tempChange24h and pressureTrend each see one half of a front and actively disagree about this case: a post-frontal morning has a RISING barometer, which pressureTrend reads as negative. Also catches the pre-frontal case, a barometer dropping hard while it is still mild, at a much lower ceiling because that half rests largely on hunter consensus rather than collar data.",
+      "confidence": "low",
+      "reweightCandidate": true,
+      "note": "One-sided by design: 0 to 1, never negative. The absence of a front is ordinary weather, not a penalty. It necessarily overlaps the two factors it is built from, so expect reweighting to move credit between the three once there are enough sits. If it has to lose, this is the one that should."
+    },
     "cloudCover": {
       "label": "Cloud cover",
       "buck": {
@@ -403,47 +427,47 @@
   },
   "calibration": {
     "buck": {
-      "offset": -1.9557,
-      "gain": 1.3566
+      "offset": -1.9143,
+      "gain": 1.3283
     },
     "general": {
-      "offset": -6.3114,
-      "gain": 1.9444
+      "offset": -5.9529,
+      "gain": 1.9284
     }
   },
   "_calibrationNote": "Affine map from the raw weighted sum onto the visible 0-10 scale: score = clamp((raw + offset) * gain, 0, 10). Identity until you run 'npm run score -- --calibrate', which simulates the whole season across a realistic spread of weather and fits offset/gain so the 5th percentile lands near 2 and the 95th near 9. Re-run it whenever the map changes materially (new stands, a pond going dry) or the drought severity changes, because both shift the raw range. Calibration changes what the numbers LOOK like, never how days rank against each other.",
   "_calibrationDiagnostics": {
     "buck": {
-      "offset": -1.9557,
-      "gain": 1.3566,
+      "offset": -1.9143,
+      "gain": 1.3283,
       "degenerate": false,
       "capped": false,
-      "wantedGain": 1.3566,
+      "wantedGain": 1.3283,
       "warning": null,
-      "p05": 3.43,
-      "p95": 8.59,
-      "rawSpread": 5.16,
+      "p05": 3.42,
+      "p95": 8.69,
+      "rawSpread": 5.27,
       "n": 17670,
-      "min": 2.22,
-      "max": 11.15
+      "min": 2.29,
+      "max": 11.45
     },
     "general": {
-      "offset": -6.3114,
-      "gain": 1.9444,
+      "offset": -5.9529,
+      "gain": 1.9284,
       "degenerate": false,
       "capped": false,
-      "wantedGain": 1.9444,
+      "wantedGain": 1.9284,
       "warning": null,
-      "p05": 7.34,
-      "p95": 10.94,
-      "rawSpread": 3.6,
+      "p05": 6.99,
+      "p95": 10.62,
+      "rawSpread": 3.63,
       "n": 17670,
-      "min": 5.91,
-      "max": 11.79
+      "min": 5.45,
+      "max": 11.57
     },
     "targetLow": 2,
     "targetHigh": 9,
-    "calibratedAt": "2026-10-22T17:01:58.577Z"
+    "calibratedAt": "2026-10-23T16:41:57.262Z"
   },
   "calibrationLimits": {
     "maxGain": 2,

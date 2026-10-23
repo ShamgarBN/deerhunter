@@ -67,7 +67,9 @@
     "_comment": "America/New_York. refreshCron pulls weather and recomputes every slot in the season; alertCron checks thresholds and fires Discord.",
     "refreshCron": "20 3 * * *",
     "alertCron": "0 7 * * *",
-    "enabled": true
+    "enabled": true,
+    "backupCron": "40 3 * * *",
+    "_backupNote": "Runs on its own schedule rather than after the refresh: a refresh that fails is exactly when yesterday copy needs to already exist."
   },
   "server": {
     "port": 8091,
@@ -119,5 +121,10 @@
       "notes": ""
     }
   ],
-  "_seasonsNote": "Define your own seasons here or on the Settings tab. Each has a date range, a weapon and a colour. Weapon is not cosmetic: it scales the scent-safety threshold, because an archer needs the deer inside 30 yards while a rifle hunter does not, so the same wind can be safe for gun and blown for bow. Seasons may overlap; where they do, the strictest open weapon governs. The tool scores the union of all enabled seasons. Dates are set by state and usually by county - check your own regs, these defaults are one NC zone."
+  "_seasonsNote": "Define your own seasons here or on the Settings tab. Each has a date range, a weapon and a colour. Weapon is not cosmetic: it scales the scent-safety threshold, because an archer needs the deer inside 30 yards while a rifle hunter does not, so the same wind can be safe for gun and blown for bow. Seasons may overlap; where they do, the strictest open weapon governs. The tool scores the union of all enabled seasons. Dates are set by state and usually by county - check your own regs, these defaults are one NC zone.",
+  "backup": {
+    "_comment": "Exports the data that cannot be refetched: the sit log, the conditions frozen at log time, sightings, availability and weights that have drifted from their research priors. Weather and scores are left out because a refresh rebuilds them. The Discord webhook is redacted, because a backup is a file that gets copied around.",
+    "keep": 30,
+    "_keepNote": "How many timestamped exports to retain. Retention is by count, not age, so a tool left alone for a month still has history when it comes back."
+  }
 }

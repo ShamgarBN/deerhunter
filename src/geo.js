@@ -32,6 +32,28 @@ export function bearingDeg(a, b) {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
+/**
+ * The inverse of bearingDeg + distanceYards: where you land starting at `from`, walking
+ * `bearing` degrees true for `yards`.
+ *
+ * Needed to put an observation back on the map. A sighting is recorded the way it is seen
+ * from the stand, as a bearing and a distance, because that is what a hunter can actually
+ * estimate. Drawing it requires turning that polar pair back into a coordinate.
+ */
+export function destinationPoint(from, bearing, yards) {
+  if (from?.lat == null || from?.lon == null || bearing == null || yards == null) return null;
+  const d = yards / R_YARDS;
+  const br = toRad(bearing);
+  const la1 = toRad(from.lat);
+  const lo1 = toRad(from.lon);
+  const la2 = Math.asin(Math.sin(la1) * Math.cos(d) + Math.cos(la1) * Math.sin(d) * Math.cos(br));
+  const lo2 = lo1 + Math.atan2(
+    Math.sin(br) * Math.sin(d) * Math.cos(la1),
+    Math.cos(d) - Math.sin(la1) * Math.sin(la2),
+  );
+  return { lat: toDeg(la2), lon: ((toDeg(lo2) + 540) % 360) - 180 };
+}
+
 // Smallest angle between two compass bearings, 0-180.
 export function angularDiff(a, b) {
   const d = Math.abs(((a - b) % 360 + 360) % 360);

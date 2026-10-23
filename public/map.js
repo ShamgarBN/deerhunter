@@ -13,6 +13,8 @@ import { api, $, $$, esc, DIRS } from '/util.js';
 
 let map = null;
 let layerGroup = null;
+let sightingGroup = null;   // the Sightings overlay, rebuilt on every mount
+let layerControl = null;
 let data = null;
 let placing = null;       // marker type awaiting a map click
 let placeMode = 'pin';    // 'pin' | 'area' - how the next feature gets drawn
@@ -441,8 +443,88 @@ async function finishLine() {
   await reload();
 }
 
+/**
+ * Sightings as arrows.
+ *
+ * Each one draws only the stretch that was actually watched: from where the deer was
+ * picked up to where cover took it, through the point it was logged at. Nothing is
+ * extrapolated. A deer seen for 30 yards gets a 30-yard arrow, and a sighting with no
+ * watched distance gets a dot and no line at all, because a direction with no length
+ * would imply knowledge of a route nobody saw.
+ *
+ * A faint spoke back to the stand is drawn too. Without it a cluster of arrows out in a
+ * field says nothing about which stand produced them, and that is most of the value.
+ */
+function sightingLayer(vectors) {
+  const group = L.layerGroup();
+  for (const v of vectors) {
+    const seen = [v.seenAt.lat, v.seenAt.lon];
+    const bucks = v.buckCount > 0;
+    const color = bucks ? 'var(--amber)' : '#86a85e';
+    const hex = bucks ? '#d9a441' : '#86a85e';
+
+    L.polyline([[v.standAt.lat, v.standAt.lon], seen],
+      { color: hex, weight: 1, opacity: 0.25, dashArray: '3,5', interactive: false }).addTo(group);
+
+    const when = v.atTime ? `${v.atTime}${v.minutesFromAnchor != null ? ` (${v.minutesFromAnchor >= 0 ? '+' : ''}${v.minutesFromAnchor}m)` : ''}` : 'time not logged';
+    const label = [
+      `<b>${esc(v.date)} ${esc(v.slot)}</b> from ${esc(v.standLabel ?? 'stand')}`,
+      `${v.deerCount} deer${v.buckCount ? ` (${v.buckCount} buck)` : ''}${v.behavior ? `, ${esc(v.behavior)}` : ''}`,
+      `${esc(v.bearingCompass ?? '?')} at ${v.distanceYards} yd &middot; ${esc(when)}`,
+      v.travelCompass ? `heading ${esc(v.travelCompass)}, watched ${v.watchedYards} yd` : 'heading not logged',
+      v.notes ? `<i>${esc(v.notes)}</i>` : '',
+    ].filter(Boolean).join('<br>');
+
+    if (v.from && v.to) {
+      L.polyline([[v.from.lat, v.from.lon], [v.to.lat, v.to.lon]],
+        { color: hex, weight: 3, opacity: 0.9 }).bindTooltip(label, { sticky: true }).addTo(group);
+      for (const head of arrowHead(v.from, v.to)) {
+        L.polyline(head, { color: hex, weight: 3, opacity: 0.9, interactive: false }).addTo(group);
+      }
+    }
+
+    L.circleMarker(seen, {
+      radius: 4, color: hex, weight: 2, fillColor: hex, fillOpacity: bucks ? 0.9 : 0.5,
+    }).bindTooltip(label, { sticky: true }).addTo(group);
+  }
+  return group;
+}
+
+/**
+ * Two short strokes at the far end of the arrow.
+ *
+ * Leaflet has no arrowhead primitive and the project vendors only Leaflet core, so this
+ * is computed in screen space: converting the last leg to layer points means the head
+ * keeps a constant size on screen instead of growing as you zoom, which is what makes a
+ * 30-yard arrow readable at all.
+ */
+let lastVectors = [];
+
+/** Rebuild the overlay's contents in place, so the layer toggle keeps its state. */
+function fillSightings() {
+  if (!sightingGroup) return;
+  sightingGroup.clearLayers();
+  for (const l of sightingLayer(lastVectors).getLayers()) sightingGroup.addLayer(l);
+}
+
+function arrowHead(from, to) {
+  if (!map) return [];
+  const a = map.latLngToLayerPoint([from.lat, from.lon]);
+  const b = map.latLngToLayerPoint([to.lat, to.lon]);
+  const ang = Math.atan2(b.y - a.y, b.x - a.x);
+  const size = 9;
+  return [25, -25].map((deg) => {
+    const t = ang + Math.PI + (deg * Math.PI) / 180;
+    const tip = L.point(b.x + Math.cos(t) * size, b.y + Math.sin(t) * size);
+    return [map.layerPointToLatLng(b), map.layerPointToLatLng(tip)];
+  });
+}
+
 export async function mount() {
   data = await api('/api/map');
+  // Never fatal: a map that will not draw your stands because a sighting query failed is
+  // a worse outcome than a map with no arrows on it.
+  const sightings = await api('/api/sightings/vectors').catch(() => ({ vectors: [], total: 0, unmappable: 0 }));
 
   if (!map) {
     const center = [data.center.lat, data.center.lon];
@@ -450,7 +532,11 @@ export async function mount() {
     const bases = basemaps();
     bases['Aerial (Esri)'].addTo(map);
     const overlays = { 'Land cover (NLCD)': coverOverlay() };
-    L.control.layers(bases, overlays, { position: 'topright' }).addTo(map);
+    // Sightings get their own toggle, off by default: on a property with a few seasons of
+    // them they would otherwise bury the markers you are trying to edit.
+    sightingGroup = L.layerGroup();
+    overlays['Sightings'] = sightingGroup;
+    layerControl = L.control.layers(bases, overlays, { position: 'topright' }).addTo(map);
     L.control.scale({ imperial: true, metric: false }).addTo(map);
     layerGroup = L.layerGroup().addTo(map);
 
@@ -460,6 +546,10 @@ export async function mount() {
     if (ov?.enabled && ov.file && ov.bounds?.north != null) {
       L.imageOverlay(`/overlays/${ov.file}`, [[ov.bounds.south, ov.bounds.west], [ov.bounds.north, ov.bounds.east]], { opacity: ov.opacity ?? 0.6 }).addTo(map);
     }
+
+    // Arrowheads are sized in screen space, so they have to be redrawn when the zoom
+    // changes or they end up pointing at the wrong place at a different scale.
+    map.on('zoomend', () => { if (map.hasLayer(sightingGroup)) fillSightings(); });
 
     map.on('click', async (e) => {
       if (lineDraft) { lineDraft.push([e.latlng.lat, e.latlng.lng]); draw(); return; }
@@ -517,6 +607,13 @@ export async function mount() {
 
   // Leaflet mis-sizes itself when its container was display:none at init.
   setTimeout(() => map.invalidateSize(), 50);
+  lastVectors = sightings.vectors ?? [];
+  fillSightings();
+  if (sightings.unmappable) {
+    // Say it rather than silently drawing fewer arrows than there are sightings.
+    $('#mapHint').textContent =
+      `${sightings.unmappable} of ${sightings.total} sightings have no stand, bearing or distance, so they are not on the map.`;
+  }
   draw();
   renderPointList();
   renderEditor();

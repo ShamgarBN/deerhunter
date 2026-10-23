@@ -126,6 +126,15 @@ function metricTiles(s) {
       vizArrow(w.pressureChange24h ?? 0, 6), f.pressureTrend?.contribution,
       factorTip('pressureTrend', f.pressureTrend?.contribution))}
 
+    ${tile('Front', f.frontalPassage?.detail?.shape && f.frontalPassage.detail.shape !== 'none'
+        ? esc(f.frontalPassage.detail.shape === 'post-frontal' ? 'POST' : 'PRE')
+        : '&ndash;',
+      f.frontalPassage?.detail?.available
+        ? `${f.frontalPassage.detail.tempChangeF > 0 ? '+' : ''}${Math.round(f.frontalPassage.detail.tempChangeF)}&deg; / ${f.frontalPassage.detail.pressureChangeHpa > 0 ? '+' : ''}${f.frontalPassage.detail.pressureChangeHpa} hPa`
+        : 'no reading',
+      vizDial(f.frontalPassage?.effect ?? 0, '#7a5c3a'), f.frontalPassage?.contribution,
+      factorTip('frontalPassage', f.frontalPassage?.contribution))}
+
     ${tile('Stand rest', hp.neverHunted ? '&infin;' : `${hp.daysSince ?? 0}d`,
       hp.neverHunted ? 'never hunted' : 'since last sat',
       vizDial(hp.neverHunted ? 1 : Math.min(1, (hp.daysSince ?? 0) / 14)), f.huntingPressure?.contribution,

@@ -18,9 +18,10 @@ import { rutFor, seasonHighlights } from './rut.js';
 import { loadSeasons, seasonsOn, strictnessOn, normalizeSeason, WEAPON_PROFILES } from './seasons.js';
 import { updateDrought, droughtHistory, countyFips } from './drought.js';
 import { safeWindSectors, standVerdict, thermalNotes } from './wind.js';
-import { ringCentroid, ringAcres, pathMidpoint, pathLengthYards, distanceToFeatureYards } from './geo.js';
+import { ringCentroid, ringAcres, pathMidpoint, pathLengthYards, distanceToFeatureYards, destinationPoint, degToCompass } from './geo.js';
 import { coverForStand, coverForPoints, manualCoverAt, describe, sampleNlcd, wmsInfo, NLCD_CLASSES } from './cover.js';
 import { testWebhook } from './discord.js';
+import { writeBackup, latestBackup, BACKUP_DIR } from './backup.js';
 import { todayLocal, addDays, dateRange, nowIso, weekday, daysBetween } from './timeutil.js';
 
 const app = express();
@@ -683,6 +684,19 @@ app.post('/api/sits/:id/sightings', wrap((req, res) => {
 
   const behavior = b.behavior && BEHAVIORS.includes(b.behavior) ? b.behavior : null;
 
+  // Which way it was going, and how much of that walk was actually visible. These are
+  // kept apart from bearing_deg on purpose: bearing_deg is where the animal was standing
+  // when first seen, travel_deg is where it was headed, and the two are routinely
+  // unrelated. The before/after pair is what the cover allowed, so it is a floor on the
+  // distance travelled and never a claim about the whole route.
+  const travel = b.travel_deg == null || b.travel_deg === '' ? null
+    : ((+b.travel_deg % 360) + 360) % 360;
+  const yards = (v) => (v == null || v === '' ? null : Math.max(0, Math.round(+v) || 0));
+  const beforeYards = yards(b.seen_before_yards);
+  const afterYards = yards(b.seen_after_yards);
+  const travelYards = beforeYards == null && afterYards == null
+    ? null : (beforeYards ?? 0) + (afterYards ?? 0);
+
   // A time that cannot be placed against the light anchor is kept anyway: the raw clock
   // reading is still worth having, it just cannot join the when-in-the-window analysis.
   const atTime = (b.at_time ?? '').trim() || null;
@@ -692,11 +706,13 @@ app.post('/api/sits/:id/sightings', wrap((req, res) => {
 
   const info = db.prepare(`
     INSERT INTO sightings (sit_id, at_time, minutes_from_anchor, deer_count, buck_count,
-                           bearing_deg, distance_yards, behavior, notes, created_at)
-    VALUES (@sit_id,@at_time,@minutes,@deer,@bucks,@bearing,@dist,@behavior,@notes,@created_at)
+                           bearing_deg, distance_yards, travel_deg, travel_yards,
+                           seen_before_yards, seen_after_yards, behavior, notes, created_at)
+    VALUES (@sit_id,@at_time,@minutes,@deer,@bucks,@bearing,@dist,@travel,@travelYards,
+            @beforeYards,@afterYards,@behavior,@notes,@created_at)
   `).run({
     sit_id: sit.id, at_time: atTime, minutes, deer, bucks,
-    bearing, dist, behavior,
+    bearing, dist, travel, travelYards, beforeYards, afterYards, behavior,
     notes: (b.notes ?? '').trim() || null,
     created_at: nowIso(),
   });
@@ -711,7 +727,69 @@ app.post('/api/sits/:id/sightings', wrap((req, res) => {
     anchor: sit.slot === 'AM' ? 'sunrise' : 'sunset',
     timeUnplaced: !!atTime && minutes == null,
     detailTotals: { deer: totals.d ?? 0, bucks: totals.b ?? 0 },
+    mappable: bearing != null && dist != null,
     exceedsSitTotal: (totals.d ?? 0) > sit.deer_count,
+  });
+}));
+
+/**
+ * Sightings as drawable geometry.
+ *
+ * The client gets coordinates, not polar pairs: the projection needs the stand's position
+ * and the great-circle maths already live here, and duplicating either in the browser is
+ * how the map and the model start disagreeing.
+ *
+ * The drawn segment covers ONLY what was actually watched. It runs from seen_before_yards
+ * back along the reverse of the travel bearing to seen_after_yards forward along it,
+ * through the point where the deer was first seen. Nothing is extrapolated: a deer watched
+ * for 30 yards in thick cover draws a 30-yard line, not a guess at where it came from.
+ */
+app.get('/api/sightings/vectors', wrap((req, res) => {
+  const map = loadMap();
+  const stands = new Map(map.points.filter((p) => p.type === 'stand').map((p) => [p.id, p]));
+
+  const rows = getDb().prepare(`
+    SELECT g.*, s.date, s.slot, s.stand_id, s.stand_label
+      FROM sightings g JOIN sits s ON s.id = g.sit_id
+     ORDER BY s.date, s.slot, g.minutes_from_anchor IS NULL, g.minutes_from_anchor
+  `).all();
+
+  const out = [];
+  for (const r of rows) {
+    const stand = r.stand_id ? stands.get(r.stand_id) : null;
+    // Without a stand there is no origin to measure from, and without a bearing and
+    // distance there is no point to place. Those sightings are still real and still in
+    // the log; they just cannot be drawn, and the count is reported so the map can say so.
+    if (!stand || r.bearing_deg == null || r.distance_yards == null) continue;
+    const origin = { lat: stand.lat, lon: stand.lon };
+    const seen = destinationPoint(origin, r.bearing_deg, r.distance_yards);
+    if (!seen) continue;
+
+    const hasTravel = r.travel_deg != null && ((r.seen_before_yards ?? 0) + (r.seen_after_yards ?? 0)) > 0;
+    out.push({
+      id: r.id,
+      date: r.date, slot: r.slot,
+      standId: r.stand_id, standLabel: r.stand_label,
+      standAt: origin,
+      seenAt: seen,
+      bearingDeg: r.bearing_deg, bearingCompass: degToCompass(r.bearing_deg),
+      distanceYards: r.distance_yards,
+      travelDeg: r.travel_deg, travelCompass: r.travel_deg == null ? null : degToCompass(r.travel_deg),
+      from: hasTravel ? destinationPoint(seen, (r.travel_deg + 180) % 360, r.seen_before_yards ?? 0) : null,
+      to: hasTravel ? destinationPoint(seen, r.travel_deg, r.seen_after_yards ?? 0) : null,
+      watchedYards: hasTravel ? (r.seen_before_yards ?? 0) + (r.seen_after_yards ?? 0) : null,
+      deerCount: r.deer_count, buckCount: r.buck_count,
+      behavior: r.behavior, atTime: r.at_time, minutesFromAnchor: r.minutes_from_anchor,
+      notes: r.notes,
+    });
+  }
+
+  const total = rows.length;
+  res.json({
+    vectors: out,
+    total,
+    unmappable: total - out.length,
+    note: 'A sighting needs a stand, a bearing and a distance to be placed. Ones without are still in the sit log.',
   });
 }));
 
@@ -836,6 +914,27 @@ app.post('/api/drought', wrap((req, res) => {
   };
   saveConfig(cfg);
   res.json({ drought: loadConfig().drought, note: 'Pinned to manual. USDM is still checked each refresh and logged, but will not overwrite this.' });
+}));
+
+// --- backups ---------------------------------------------------------------
+
+app.get('/api/backup', wrap((req, res) => {
+  res.json({ latest: latestBackup(), dir: BACKUP_DIR });
+}));
+
+app.post('/api/backup', wrap((req, res) => {
+  const cfg = loadConfig();
+  const r = writeBackup({ keep: cfg.backup?.keep ?? 30 });
+  res.json({ name: path.basename(r.jsonPath), counts: r.counts, pruned: r.pruned });
+}));
+
+// Download the most recent backup. Served as an attachment so a browser saves it instead
+// of rendering 2 MB of JSON, and resolved against BACKUP_DIR rather than anything the
+// caller supplies, so there is no path for a request to name a file outside it.
+app.get('/api/backup/download', wrap((req, res) => {
+  const latest = latestBackup();
+  if (!latest) return res.status(404).json({ error: 'no backup has been written yet' });
+  res.download(latest.path, latest.name);
 }));
 
 app.get('/api/drought', wrap((req, res) => {
@@ -969,7 +1068,17 @@ function startScheduler(cfg) {
     catch (err) { console.error('[cron] alert check failed:', err.message); }
   }, { timezone: tz });
 
-  console.log(`Scheduler armed (${tz}): refresh ${cfg.schedule.refreshCron}, alerts ${cfg.schedule.alertCron}`);
+  // Backups run on their own schedule rather than after a refresh: a refresh that throws
+  // is exactly when you most want yesterday's copy to have been taken already.
+  if (cfg.schedule.backupCron) {
+    cron.schedule(cfg.schedule.backupCron, () => {
+      try { writeBackup({ keep: cfg.backup?.keep ?? 30, log: (m) => console.log(`[backup] ${m}`) }); }
+      catch (err) { console.error('[cron] backup failed:', err.message); }
+    }, { timezone: tz });
+  }
+
+  console.log(`Scheduler armed (${tz}): refresh ${cfg.schedule.refreshCron}, alerts ${cfg.schedule.alertCron}`
+    + (cfg.schedule.backupCron ? `, backup ${cfg.schedule.backupCron}` : ''));
 }
 
 const cfg = loadConfig();

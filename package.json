@@ -18,7 +18,8 @@
     "alert": "node src/cli.js alert",
     "reweight": "node src/cli.js reweight",
     "normals": "node src/cli.js normals",
-    "test-discord": "node src/cli.js test-discord"
+    "test-discord": "node src/cli.js test-discord",
+    "backup": "node src/cli.js backup"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",

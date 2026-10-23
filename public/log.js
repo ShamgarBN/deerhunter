@@ -30,6 +30,13 @@ function sightingLine(g, sitSlot) {
   if (g.bearing_deg != null) where.push(DIRS[Math.round(((g.bearing_deg % 360) + 360) % 360 / 22.5) % 16]);
   if (g.distance_yards != null) where.push(`${g.distance_yards}yd`);
   if (where.length) bits.push(where.join(' '));
+  // The watched distance is shown with the arrow because it is the honest caveat on it:
+  // 30 yards of cover is a very different observation from 200 yards of open field.
+  if (g.travel_deg != null) {
+    const watched = (g.seen_before_yards ?? 0) + (g.seen_after_yards ?? 0);
+    bits.push(`&rarr; ${DIRS[Math.round(((g.travel_deg % 360) + 360) % 360 / 22.5) % 16]}`
+      + (watched ? ` <span class="dim">(${watched}yd seen)</span>` : ''));
+  }
   if (g.behavior) bits.push(esc(g.behavior));
   if (g.notes) bits.push(`<span class="muted">${esc(g.notes)}</span>`);
   return `<div class="sighting">
@@ -48,6 +55,14 @@ function detailForm(sit, behaviors) {
       ${DIRS.map((d) => `<option value="${d}">${d}</option>`).join('')}
     </select>
     <input type="number" data-f="distance_yards" min="0" placeholder="yd" style="width:70px" title="Distance in yards">
+    <select data-f="travel" title="Which way it was HEADED. Different from the direction you saw it in.">
+      <option value="">heading</option>
+      ${DIRS.map((d) => `<option value="${d}">&rarr; ${d}</option>`).join('')}
+    </select>
+    <input type="number" data-f="seen_before_yards" min="0" placeholder="yd before" style="width:86px"
+      title="How many yards you could watch it BEFORE the point you logged. Leave blank if it stepped straight out.">
+    <input type="number" data-f="seen_after_yards" min="0" placeholder="yd after" style="width:80px"
+      title="How many yards you could watch it AFTER, before cover took it. This bounds the arrow: nothing is extrapolated past what you saw.">
     <select data-f="behavior" title="What it was doing">
       <option value="">doing what</option>
       ${(behaviors ?? []).map((b) => `<option value="${esc(b)}">${esc(b)}</option>`).join('')}
@@ -143,6 +158,9 @@ async function renderList() {
             buck_count: +get('buck_count') || 0,
             bearing_deg: dir ? degFor(dir) : null,
             distance_yards: get('distance_yards') === '' ? null : +get('distance_yards'),
+            travel_deg: get('travel') ? degFor(get('travel')) : null,
+            seen_before_yards: get('seen_before_yards') === '' ? null : +get('seen_before_yards'),
+            seen_after_yards: get('seen_after_yards') === '' ? null : +get('seen_after_yards'),
             behavior: get('behavior') || null,
             notes: get('notes') || null,
           }),
@@ -151,6 +169,8 @@ async function renderList() {
         // that will read as a contradiction at review time.
         if (r.exceedsSitTotal) {
           msg.innerHTML = '<span style="color:var(--amber)">Saved. Detail now totals more deer than the sit does, so update the sit count.</span>';
+        } else if (!r.mappable) {
+          msg.innerHTML = '<span style="color:var(--amber)">Saved, but with no direction and distance it cannot go on the map.</span>';
         } else if (r.timeUnplaced) {
           msg.innerHTML = '<span style="color:var(--amber)">Saved, but that time could not be placed against first light.</span>';
         } else {

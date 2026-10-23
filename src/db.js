@@ -223,6 +223,15 @@ function addColumns(d) {
     ['weather', 'temp_change_48h REAL'],
     ['weather', 'precip_in REAL'],
     ['weather', 'hours_since_rain REAL'],
+    // Which way a deer was travelling, and how much of that travel was actually visible.
+    // Separate from bearing_deg, which is only where the animal was standing when first
+    // seen: a deer 80 yards north-east of the stand walking west tells you about a trail,
+    // while the standing position alone does not. travel_yards is bounded by what the
+    // cover lets you see, so it is a floor on the real distance, never the distance.
+    ['sightings', 'travel_deg REAL'],
+    ['sightings', 'travel_yards INTEGER'],
+    ['sightings', 'seen_before_yards INTEGER'],
+    ['sightings', 'seen_after_yards INTEGER'],
   ];
   for (const [table, def] of cols) {
     try { d.exec(`ALTER TABLE ${table} ADD COLUMN ${def}`); }

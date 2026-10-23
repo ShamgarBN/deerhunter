@@ -8,6 +8,7 @@ import { refresh, checkAlerts } from './jobs.js';
 import { runReweight, resetToPriors, adjustmentHistory } from './reweight.js';
 import { calibrate, distribution } from './calibrate.js';
 import { testWebhook } from './discord.js';
+import { writeBackup, latestBackup } from './backup.js';
 import { rutFor, seasonHighlights } from './rut.js';
 import { todayLocal, weekday } from './timeutil.js';
 import fs from 'fs';
@@ -211,6 +212,16 @@ gitignored and overrides config.json, so your property stays off version control
       break;
     }
 
+    case 'backup': {
+      const keep = +argOf('--keep', 30);
+      const r = writeBackup({ keep, log: console.log });
+      console.log(`\nWrote ${r.jsonPath}`);
+      console.log(`CSV:   ${r.sits}`);
+      console.log(`       ${r.sightings}`);
+      console.log(`Kept:  ${keep} most recent. Counts: ${JSON.stringify(r.counts)}`);
+      break;
+    }
+
     case 'sits': {
       const rows = getDb().prepare('SELECT s.*, sn.source FROM sits s LEFT JOIN sit_snapshots sn ON sn.sit_id=s.id ORDER BY s.date DESC').all();
       if (!rows.length) { console.log('No sits logged.'); break; }
@@ -236,6 +247,7 @@ gitignored and overrides config.json, so your property stays off version control
   npm run test-discord         post a connectivity test to the webhook
   node src/cli.js rut          print the rut curve landmarks for this season
   node src/cli.js sits         print the sit log
+  npm run backup               export the irreplaceable data (add -- --keep 60)
 `);
   }
 }
